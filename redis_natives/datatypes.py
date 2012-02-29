@@ -225,7 +225,21 @@ class Primitive(RedisDataType):
                 "Cannot decrement Primitive with string-value")
 
 
-class Set(RedisSortable):
+class Comparable(object):
+    def __gt__(self, other):
+        return self.__len__() > len(other)
+
+    def __lt__(self, other):
+        return self.__len__() < len(other)
+
+    def __ge__(self, other):
+        return self.__len__() >= len(other)
+
+    def __le__(self, other):
+        return self.__len__() <= len(other)
+
+
+class Set(RedisSortable, Comparable):
     """
     Re-implements the complete interface of the native ``set`` datatype
     as a bound ``RedisDataType``. Use it exactly as you'd use a ``set``.
@@ -258,18 +272,6 @@ class Set(RedisSortable):
     def __or__(self, other):
         # Remove __or__ due to inefficiency?
         return self._client.smembers(self.key) or other
-
-    def __gt__(self, other):
-        return self.__len__() > len(other)
-
-    def __lt__(self, other):
-        return self.__len__() < len(other)
-
-    def __ge__(self, other):
-        return self.__len__() >= len(other)
-
-    def __le__(self, other):
-        return self.__len__() <= len(other)
 
     def __iter__(self):
         # TODO: Is there a better way than getting ALL at once?
@@ -479,7 +481,7 @@ class ZOrder(object):
         return 1
 
 
-class ZSet(RedisSortable):
+class ZSet(RedisSortable, Comparable):
     """
     An Ordered-set datatype for Python. It's a mixture between Redis' ``ZSet``
     and a simple Set-type. Main difference is the concept of a score associated
@@ -509,18 +511,6 @@ class ZSet(RedisSortable):
     def __or__(self, other):
         return self._client.zrange(self.key, 0, -1) or other
 
-    def __gt__(self, other):
-        return self.__len__() > len(other)
-
-    def __lt__(self, other):
-        return self.__len__() < len(other)
-
-    def __ge__(self, other):
-        return self.__len__() >= len(other)
-
-    def __le__(self, other):
-        return self.__len__() <= len(other)
-
     def __iter__(self):
         # TODO: Is there a better way than getting ALL at once?
         for score, el in self._client.zrange(self.key, 0, -1, withscores=True):
@@ -547,7 +537,7 @@ class ZSet(RedisSortable):
         Remove ``member`` form this set;
         Do nothing when element is not a member
         """
-        self._client.srem(self.key, member)
+        self._client.zrem(self.key, member)
 
     def copy(self, key):
         """
