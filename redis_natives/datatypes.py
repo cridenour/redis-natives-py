@@ -499,7 +499,7 @@ class ZSet(RedisSortable, Comparable):
             self._pipe.execute()
 
     def __len__(self):
-        return self._client.scard(self.key)
+        return self._client.zcard(self.key)
 
     def __contains__(self, value):
         # TODO: Remove __contains__ method due to inefficiency?
