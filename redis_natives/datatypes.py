@@ -34,21 +34,20 @@ class RedisDataType(object):
 
     __slots__ = ("_pipe", "_client", "_key")
 
-    def __init__(self, client, key):
+    def __init__(self, client, key, type=str):
         if not isinstance(key, str):
             raise RedisTypeError("Key must be type of string")
         self._key = str(key)
-        if isinstance(client, Redis):
-            self._client = client
-            # Offer it by for bulk-commands
-            self._pipe = client.pipeline()
-        else:
-            raise RedisTypeError("Argument 'client' must be instance of Redis")
+        self._client = client
+        # Offer it by for bulk-commands
+        self._pipe = client.pipeline()
+        self.type = type
 
     @property
     def key(self):
-        '''The database-internal key name of this object
-        '''
+        """
+        The redis-internal key name of this object
+        """
         return self._key
 
     @key.setter
@@ -62,7 +61,8 @@ class RedisDataType(object):
         """
         return self._client.exists(self.key)
 
-    def type(self):
+    @property
+    def redis_type(self):
         """Return the internal name of a datatype. (Specific to Redis)
         """
         return self._client.type(self.key)
@@ -255,9 +255,9 @@ class Set(RedisSortable, Comparable):
                 self._pipe.sadd(key, el)
             self._pipe.execute()
 
-    #===========================================================================
+    #==========================================================================
     # Built-in methods
-    #===========================================================================
+    #==========================================================================
 
     def __len__(self):
         return self._client.scard(self.key)
@@ -437,9 +437,9 @@ class Set(RedisSortable, Comparable):
         # TODO: Implement
         raise NotImplementedError("Set.issuperset not implemented yet")
 
-    #===========================================================================
+    #=========================================================================
     # Custom methods
-    #===========================================================================
+    #=========================================================================
 
     @staticmethod
     def _splitBySetType(*sets):
@@ -518,9 +518,9 @@ class ZSet(RedisSortable, Comparable):
     def __repr__(self):
         return str(self._client.zrange(self.key, 0, -1, withscores=True))
 
-    #===========================================================================
+    #==========================================================================
     # Native set methods
-    #===========================================================================
+    #==========================================================================
 
     def add(self, el, score):
         """
@@ -561,9 +561,10 @@ class ZSet(RedisSortable, Comparable):
         if (length == 0):
             raise RedisKeyError("ZSet is empty")
         idx = randint(0, length - 1)
-        return self._pipe.zrange(self.key, idx, idx) \
+        value = self._pipe.zrange(self.key, idx, idx) \
                          .zremrangebyrank(self.key, idx, idx) \
                    .execute()[0][0]
+        return self.type(value)
 
     #==========================================================================
     # Custom methods
@@ -681,7 +682,7 @@ class Dict(RedisDataType, MutableMapping):
         return self._client.hget(self.key, key)
 
     def __getitem__(self, key):
-        val = self._client.hget(self.key, key)
+        val = self.type(self._client.hget(self.key, key))
         if val is None:
             raise RedisKeyError("Field '" + key + "' doesn't exist")
         return val
@@ -718,7 +719,7 @@ class Dict(RedisDataType, MutableMapping):
     def items(self):
         # dict.items() returns a list with k,v-tuples -- and so do we
         allItems = self._client.hgetall(self.key)
-        return zip(allItems.keys(), allItems.values())
+        return zip(allItems.keys(), map(self.type, allItems.values()))
 
     def iteritems(self):
         return self._client.hgetall(self.key).iteritems()
@@ -727,7 +728,7 @@ class Dict(RedisDataType, MutableMapping):
         return iter(self._client.hkeys(self.key))
 
     def itervalues(self):
-        return iter(self._client.hvals(self.key))
+        return iter(map(self.type, self._client.hvals(self.key)))
 
     def keys(self):
         return self._client.hkeys(self.key)
@@ -754,11 +755,11 @@ class Dict(RedisDataType, MutableMapping):
         self._client.hsset(self.key, pairs)
 
     def values(self):
-        return self._client.hvals(self.key)
+        return map(self.type, self._client.hvals(self.key))
 
-    #===========================================================================
+    #==========================================================================
     # Custom methods
-    #===========================================================================
+    #==========================================================================
 
     def incr(self, key, by=1):
         return self._client.hincrby(self.key, key, by)
@@ -778,8 +779,8 @@ class List(RedisSortable, Sequence):
     # __setitem__, insert, pop and sort will be available though, becuase
     # we can implement them with native redis functionality
 
-    def __init__(self, client, key, iter=[]):
-        super(List, self).__init__(client, key)
+    def __init__(self, client, key, type=str, iter=[]):
+        super(List, self).__init__(client, key, type)
         if hasattr(iter, "__iter__") and len(iter):
             # TODO: What if the key already exists?
             for val in iter:
@@ -793,23 +794,26 @@ class List(RedisSortable, Sequence):
     def __contains__(self, el):
         # As long as redis doesn't support lookups by value, we
         # have to use this inefficient workaround
-        return el in self._client.lrange(self.key, 0, -1)
+        return str(el) in self._client.lrange(self.key, 0, -1)
 
     def __iter__(self):
-        for el in self._client.lrange(self.key, 0, -1):
-            yield el
+        for el in map(self.type, self._client.lrange(self.key, 0, -1)):
+            yield self.type(el)
 
     def __len__(self):
         return self._client.llen(self.key)
 
     def __reversed__(self):
-        return self._client.lrange(self.key, 0, -1).reverse()
+        return map(self.type, self._client.lrange(self.key, 0, -1)).reverse()
 
     def __getitem__(self, key):
         if isinstance(key, slice):
-            return self._client.lrange(self._key, key.start, key.stop)
+            return map(
+                self.type,
+                self._client.lrange(self._key, key.start, key.stop)
+            )
         else:
-            return self._client.lindex(self._key, key)
+            return self.type(self._client.lindex(self._key, key))
 
     def __setitem__(self, key, value):
         if isinstance(key, slice):
@@ -860,17 +864,20 @@ class List(RedisSortable, Sequence):
     def index(self, el):
         """Return index of first occurence of value ``el`` within this list.
         """
-        return self._client.lindex(self.key, el)
+        return self.type(self._client.lindex(self.key, el))
 
     def pop(self, idx=None):
         """Remove and return element at index ``idx``.
         """
         if idx is None:
-            return self._client.rpop(self.key)
+            return self.type(self._client.rpop(self.key))
         elif isinstance(idx, int):
-            self.__delitem__(idx)
+            if idx == 0:
+                return self.type(self._client.lpop(self.key))
+            else:
+                return self.__delitem__(idx)
         else:
-            raise RedisTypeError("Argument must be type of 'int' or 'NoneType'")
+            raise TypeError("Argument must be type of 'int' or 'NoneType'")
 
     def remove(self, val, n=1, all=False):
         """

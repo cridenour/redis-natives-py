@@ -1,14 +1,15 @@
 from redis import Redis
-
-from redis_natives.datatypes import Dict, List, Set, ZSet
+from redis_natives.datatypes import Dict, Set, ZSet
+from tests import RedisWrapper
 
 
 class TestZSet(object):
     def setup_method(self, method):
-        self.redis = Redis()
-        self.redis.flushdb()
+        self.redis = RedisWrapper(Redis())
         self.test_key = 'test_key'
         self.zset = ZSet(self.redis, self.test_key)
+        self.redis.flushdb()
+        self.redis.method_calls = []
 
     def test_length_initially_zero(self):
         assert len(self.zset) == 0
@@ -37,6 +38,25 @@ class TestZSet(object):
         self.zset.add(1, 2)
         assert '1' in self.zset
         assert '2' not in self.zset
+
+    def test_iterator(self):
+        self.zset.add(1, 2)
+        self.zset.add(2, 2)
+        assert [i for i in self.zset] == [('1', 2.0), ('2', 2.0)]
+
+    def test_redis_type(self):
+        self.zset.add(1, 2)
+        assert self.zset.redis_type == 'zset'
+
+    def test_type(self):
+        self.zset.add(1, 2)
+        assert self.zset.type == str
+
+    def test_integer_type_conversion(self):
+        self.zset.type = int
+        self.zset.add(1, 2)
+
+        assert self.zset.pop() == 1
 
 
 class TestSet(object):
@@ -73,6 +93,15 @@ class TestSet(object):
         self.set.add(1)
         assert '1' in self.set
 
+    def test_iterator(self):
+        self.set.add(1)
+        self.set.add(2)
+        assert [i for i in self.set] == ['1', '2']
+
+    def test_redis_type(self):
+        self.set.add(1)
+        assert self.set.redis_type == 'set'
+
 
 class TestDict(object):
     def setup_method(self, method):
@@ -103,76 +132,29 @@ class TestDict(object):
         assert 'a' in self.dict
         assert 'b' not in self.dict
 
-
-class TestList(object):
-    def setup_method(self, method):
-        self.redis = Redis()
-        self.redis.flushdb()
-        self.test_key = 'test_key'
-        self.list = List(self.redis, self.test_key)
-
-    def test_length_initially_zero(self):
-        assert len(self.list) == 0
-
-    def test_append_value_increases_length(self):
-        self.list.append(1)
-        assert len(self.list) == 1
-
-    def test_append_saves_values_in_redis(self):
-        self.list.append(1)
-        assert self.redis.lrange('test_key', 0, 1) == ['1']
-
-    def test_remove(self):
-        self.list.append(1)
-
-        self.list.remove(1)
-        assert len(self.list) == 0
-
-    def test_contains(self):
-        self.list.append(1)
-        assert '1' in self.list
-        assert '2' not in self.list
-
     def test_iterator(self):
-        self.list.append(1)
-        self.list.append(2)
-        assert [i for i in self.list] == ['1', '2']
+        self.dict['a'] = 'b'
+        self.dict['b'] = 'c'
+        assert [key for key in self.dict] == ['a', 'b']
 
-    def test_insert(self):
-        self.list.append(1)
-        self.list.insert(0, 2)
+    def test_items(self):
+        self.dict['a'] = 'b'
+        self.dict['b'] = 'c'
+        assert self.dict.items() == [('a', 'b'), ('b', 'c')]
 
-        assert [i for i in self.list] == ['2', '1']
+    def test_values(self):
+        self.dict['a'] = 'b'
+        self.dict['b'] = 'c'
+        assert self.dict.values() == ['b', 'c']
+
+    def test_keys(self):
+        self.dict['a'] = 'b'
+        self.dict['b'] = 'c'
+        assert self.dict.keys() == ['a', 'b']
+
+    def test_redis_type(self):
+        self.dict['a'] = 'b'
+        assert self.dict.redis_type == 'hash'
 
 
-class TestListGetItem(object):
-    def setup_method(self, method):
-        self.redis = Redis()
-        self.redis.flushdb()
-        self.test_key = 'test_key'
-        self.list = List(self.redis, self.test_key)
-        self.list.append(1)
-        self.list.append(2)
-        self.list.append(3)
-        self.list.append(4)
 
-    def test_length_returns_list_length(self):
-        assert len(self.list) == 4
-
-    def test_get_list_item_by_range(self):
-        assert self.list[0:-1] == ['1', '2', '3', '4']
-
-    def test_get_list_item(self):
-        assert self.list[1] == '2'
-
-    def test_set_list_item(self):
-        self.list[2] = 123
-        assert self.list[2] == '123'
-
-    def test_set_items_by_range(self):
-        self.list[1:2] = 5
-        assert self.list[1] == '5'
-        assert self.list[2] == '5'
-
-    def test_pop(self):
-        self.list.pop() == '4'
