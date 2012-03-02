@@ -147,3 +147,59 @@ class TestIntegerList(object):
         self.redis.method_calls = []
         assert self.list.pop(0) == 1
         assert self.redis.method_calls == ['lpop']
+
+
+class TestBooleanList(object):
+    def setup_method(self, method):
+        self.redis = RedisWrapper(Redis())
+        self.redis.flushdb()
+        self.test_key = 'test_key'
+        self.list = List(self.redis, self.test_key, type=bool)
+        self.list.append(True)
+        self.list.append(False)
+        self.list.append(True)
+        self.list.append(True)
+        self.redis.method_calls = []
+
+    def test_length_returns_list_length(self):
+        assert len(self.list) == 4
+
+    def test_get_list_item_by_range(self):
+        assert self.list[0:-1] == [True, False, True, True]
+
+    def test_get_list_item(self):
+        assert self.list[1] == False
+
+    def test_set_list_item(self):
+        self.list[2] = False
+        assert self.list[2] == False
+
+    def test_set_items_by_range(self):
+        self.list[2:] = False
+        assert self.list[2] == False
+        assert self.list[3] == False
+
+    def test_pop(self):
+        self.list.pop() == True
+
+    def test_remove(self):
+        self.list.remove(False)
+        assert len(self.list) == 3
+
+    def test_contains(self):
+        assert True in self.list
+        assert False in self.list
+        assert 5 not in self.list
+
+    def test_iterator(self):
+        assert [i for i in self.list] == [True, False, True, True]
+
+    def test_insert(self):
+        self.list.insert(0, False)
+
+        assert [i for i in self.list] == [False, True, False, True, True]
+
+    def test_popping_first_item_uses_lpop(self):
+        self.redis.method_calls = []
+        assert self.list.pop(0) == True
+        assert self.redis.method_calls == ['lpop']

@@ -42,6 +42,10 @@ class RedisDataType(object):
         # Offer it by for bulk-commands
         self._pipe = client.pipeline()
         self.type = type
+        if type is bool:
+            self.type_convert = lambda a: bool(int(a))
+        else:
+            self.type_convert = type
 
     @property
     def key(self):
@@ -53,6 +57,11 @@ class RedisDataType(object):
     @key.setter
     def key(self, val):
         self.rename(val)
+
+    def type_prepare(self, val):
+        if self.type is bool:
+            return int(val)
+        return val
 
     @property
     def exists(self):
@@ -247,8 +256,8 @@ class Set(RedisSortable, Comparable):
 
     __slots__ = ("_key", "_client", "_pipe")
 
-    def __init__(self, client, key, iter=[]):
-        super(Set, self).__init__(client, key)
+    def __init__(self, client, key, iter=[], type=str):
+        super(Set, self).__init__(client, key, type)
         if hasattr(iter, "__iter__") and len(iter):
             # TODO: What if the key already exists?
             for el in iter:
@@ -263,7 +272,7 @@ class Set(RedisSortable, Comparable):
         return self._client.scard(self.key)
 
     def __contains__(self, value):
-        return self._client.sismember(self.key, value)
+        return self._client.sismember(self.key, self.type_prepare(value))
 
     def __and__(self, other):
         # Remove __and__ due to inefficiency?
@@ -276,7 +285,7 @@ class Set(RedisSortable, Comparable):
     def __iter__(self):
         # TODO: Is there a better way than getting ALL at once?
         for el in self._client.smembers(self.key):
-            yield el
+            yield self.type_convert(el)
 
     def __repr__(self):
         return str(self._client.smembers(self.key))
@@ -289,7 +298,7 @@ class Set(RedisSortable, Comparable):
         """
         Add element ``el`` to this ``Set``
         """
-        return self._client.sadd(self.key, el)
+        return self._client.sadd(self.key, self.type_prepare(el))
 
     def clear(self):
         """
@@ -328,7 +337,7 @@ class Set(RedisSortable, Comparable):
         """
         Remove ``member`` form this set; Do nothing when element is not a member.
         """
-        self._client.srem(self.key, member)
+        self._client.srem(self.key, self.type_prepare(member))
 
     def intersection(self, *others):
         """
@@ -355,15 +364,17 @@ class Set(RedisSortable, Comparable):
         element will not be removed. Raises ``KeyError`` if  set is empty.
         """
         if noRemove:
-            return self._client.srandmember(self.key)
+            value = self._client.srandmember(self.key)
         else:
-            return self._client.spop(self.key)
+            value = self._client.spop(self.key)
+        return self.type_convert(value)
 
     def remove(self, el):
         """
         Remove element ``el`` from this set. ``el`` must be a member,
         otherwise a ``KeyError`` is raised.
         """
+        el = self.type_prepare(el)
         if not self._client.srem(self.key, el):
             raise RedisKeyError("Redis#%s, %s: Element '%s' doesn't exist" % \
                                 (self._client.db, self.key, el))
@@ -794,30 +805,37 @@ class List(RedisSortable, Sequence):
     def __contains__(self, el):
         # As long as redis doesn't support lookups by value, we
         # have to use this inefficient workaround
-        return str(el) in self._client.lrange(self.key, 0, -1)
+        return str(self.type_prepare(el)) in \
+            self._client.lrange(self.key, 0, -1)
 
     def __iter__(self):
-        for el in map(self.type, self._client.lrange(self.key, 0, -1)):
+        for el in map(self.type_convert, self._client.lrange(self.key, 0, -1)):
             yield self.type(el)
 
     def __len__(self):
         return self._client.llen(self.key)
 
     def __reversed__(self):
-        return map(self.type, self._client.lrange(self.key, 0, -1)).reverse()
+        return map(self.type_convert,
+            self._client.lrange(self.key, 0, -1)).reverse()
 
     def __getitem__(self, key):
         if isinstance(key, slice):
             return map(
-                self.type,
+                self.type_convert,
                 self._client.lrange(self._key, key.start, key.stop)
             )
         else:
-            return self.type(self._client.lindex(self._key, key))
+            return self.type_convert(self._client.lindex(self._key, key))
 
     def __setitem__(self, key, value):
+        value = self.type_prepare(value)
         if isinstance(key, slice):
-            for i in range(key.start, key.stop + 1):
+            if key.stop is None:
+                stop = self.__len__() - 1
+            else:
+                stop = key.stop
+            for i in range(key.start, stop + 1):
                 self._client.lset(self._key, i, value)
         else:
             return self._client.lset(self._key, key, value)
@@ -826,14 +844,14 @@ class List(RedisSortable, Sequence):
     def __delitem__(self):
         raise NotImplementedError("Method '__delitem__' not implemented yet")
 
-    #===========================================================================
+    #==========================================================================
     # Native methods
-    #===========================================================================
+    #==========================================================================
 
     def append(self, el):
         """Pushes element ``el`` at the end of this list.
         """
-        self._client.rpush(self.key, el)
+        self._client.rpush(self.key, self.type_prepare(el))
 
     def count(self, el):
         """Returns the number of occurences of value ``el`` within this list.
@@ -856,6 +874,7 @@ class List(RedisSortable, Sequence):
         if count < idx:
             raise IndexError("Index out of range")
         else:
+            el = self.type_prepare(el)
             if idx == 0:
                 self._client.lpush(self.key, el)
             else:
@@ -864,16 +883,16 @@ class List(RedisSortable, Sequence):
     def index(self, el):
         """Return index of first occurence of value ``el`` within this list.
         """
-        return self.type(self._client.lindex(self.key, el))
+        return self.type_convert(self._client.lindex(self.key, el))
 
     def pop(self, idx=None):
         """Remove and return element at index ``idx``.
         """
         if idx is None:
-            return self.type(self._client.rpop(self.key))
+            return self.type_convert(self._client.rpop(self.key))
         elif isinstance(idx, int):
             if idx == 0:
-                return self.type(self._client.lpop(self.key))
+                return self.type_convert(self._client.lpop(self.key))
             else:
                 return self.__delitem__(idx)
         else:
@@ -887,6 +906,7 @@ class List(RedisSortable, Sequence):
 
         Returns number of removed values as ``int``.
         """
+        val = self.type_prepare(val)
         if all:
             if self._client.lrem(self.key, val, 0):
                 return None
