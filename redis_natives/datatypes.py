@@ -668,15 +668,15 @@ class Dict(RedisDataType, MutableMapping):
 
     __slots__ = ("_key", "_client", "_pipe")
 
-    def __init__(self, client, key, iter=None):
-        super(Dict, self).__init__(client, key)
+    def __init__(self, client, key, iter=None, type=str):
+        super(Dict, self).__init__(client, key, type)
         if hasattr(iter, "iteritems") and len(iter):
             # TODO: What if the key already exists?
             self._client.hmset(self.key, iter)
 
-    #===========================================================================
+    #==========================================================================
     # Built-in methods
-    #===========================================================================
+    #==========================================================================
 
     def __len__(self):
         return self._client.hlen(self.key)
@@ -693,13 +693,13 @@ class Dict(RedisDataType, MutableMapping):
         return self._client.hget(self.key, key)
 
     def __getitem__(self, key):
-        val = self.type(self._client.hget(self.key, key))
+        val = self.type_convert(self._client.hget(self.key, key))
         if val is None:
             raise RedisKeyError("Field '" + key + "' doesn't exist")
         return val
 
     def __setitem__(self, key, value):
-        self._client.hset(self.key, key, value)
+        self._client.hset(self.key, key, self.type_prepare(value))
 
     def __delitem__(self, key):
         if not self._client.hdel(self.key, key):
@@ -709,9 +709,9 @@ class Dict(RedisDataType, MutableMapping):
     def __str__(self):
         return str(self.__repr__())
 
-    #===========================================================================
+    #==========================================================================
     # Native set methods
-    #===========================================================================
+    #==========================================================================
 
     has_key = __contains__
 
@@ -730,16 +730,17 @@ class Dict(RedisDataType, MutableMapping):
     def items(self):
         # dict.items() returns a list with k,v-tuples -- and so do we
         allItems = self._client.hgetall(self.key)
-        return zip(allItems.keys(), map(self.type, allItems.values()))
+        return zip(allItems.keys(), map(self.type_convert, allItems.values()))
 
     def iteritems(self):
-        return self._client.hgetall(self.key).iteritems()
+        return map(self.type_convert, self._client.hgetall(self.key)) \
+            .iteritems()
 
     def iterkeys(self):
         return iter(self._client.hkeys(self.key))
 
     def itervalues(self):
-        return iter(map(self.type, self._client.hvals(self.key)))
+        return iter(map(self.type_convert, self._client.hvals(self.key)))
 
     def keys(self):
         return self._client.hkeys(self.key)
@@ -766,7 +767,7 @@ class Dict(RedisDataType, MutableMapping):
         self._client.hsset(self.key, pairs)
 
     def values(self):
-        return map(self.type, self._client.hvals(self.key))
+        return map(self.type_convert, self._client.hvals(self.key))
 
     #==========================================================================
     # Custom methods
