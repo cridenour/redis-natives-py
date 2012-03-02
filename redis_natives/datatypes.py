@@ -502,8 +502,7 @@ class ZSet(RedisSortable, Comparable):
         return self._client.zcard(self.key)
 
     def __contains__(self, value):
-        # TODO: Remove __contains__ method due to inefficiency?
-        return value in self._client.zrange(self.key, 0, -1)
+        return self._client.zscore(self.key, value) is not None
 
     def __and__(self, other):
         return self._client.zrange(self.key, 0, -1) and other
@@ -564,7 +563,7 @@ class ZSet(RedisSortable, Comparable):
         idx = randint(0, length - 1)
         return self._pipe.zrange(self.key, idx, idx) \
                          .zremrangebyrank(self.key, idx, idx) \
-                   .execute()[0]
+                   .execute()[0][0]
 
     #==========================================================================
     # Custom methods
@@ -787,9 +786,9 @@ class List(RedisSortable, Sequence):
                 self._pipe.rpush(self.key, val)
             self._pipe.execute()
 
-    #===========================================================================
+    #==========================================================================
     # Built-in methods
-    #===========================================================================
+    #==========================================================================
 
     def __contains__(self, el):
         # As long as redis doesn't support lookups by value, we
@@ -806,14 +805,18 @@ class List(RedisSortable, Sequence):
     def __reversed__(self):
         return self._client.lrange(self.key, 0, -1).reverse()
 
-    def __getitem__(self, idx):
-        return self.client.lindex(self.key, idx)
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            return self._client.lrange(self._key, key.start, key.stop)
+        else:
+            return self._client.lindex(self._key, key)
 
-    def __setitem__(self, idx, el):
-        try:
-            self._client.lset(self.key, idx, el)
-        except ResponseError:
-            raise IndexError("Index out of range")
+    def __setitem__(self, key, value):
+        if isinstance(key, slice):
+            for i in range(key.start, key.stop + 1):
+                self._client.lset(self._key, i, value)
+        else:
+            return self._client.lset(self._key, key, value)
 
     # __delitem__ cannot be implemented (yet) without sideeffects
     def __delitem__(self):
@@ -849,7 +852,10 @@ class List(RedisSortable, Sequence):
         if count < idx:
             raise IndexError("Index out of range")
         else:
-            self._client.lset(self.key, idx, el)
+            if idx == 0:
+                self._client.lpush(self.key, el)
+            else:
+                self._client.lset(self.key, idx, el)
 
     def index(self, el):
         """Return index of first occurence of value ``el`` within this list.
@@ -859,7 +865,7 @@ class List(RedisSortable, Sequence):
     def pop(self, idx=None):
         """Remove and return element at index ``idx``.
         """
-        if idx is not None:
+        if idx is None:
             return self._client.rpop(self.key)
         elif isinstance(idx, int):
             self.__delitem__(idx)
