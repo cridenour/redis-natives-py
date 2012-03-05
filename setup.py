@@ -7,19 +7,19 @@
 @brief Setuptools configuration for redis-natives-py
 """
 
-version = '0.11'
+version = '0.12'
 
 sdict = {
     'name': 'redis_natives',
     'version': version,
     'description': 'Exposes Redis entities as native Python datatypes. Simple, plain but powerful. Supports namespacing, indexing, and some more.',
-    'long_description': 'A thin abstraction layer on top of redis-py that exposes Redis entities as native Python datatypes. Simple, plain but powerful. No ORMing or model-messing.',
+    'long_description': 'A thin abstraction layer on top of redis-py that exposes Redis entities as native Python datatypes. Simple, plain but powerful.',
     'url': 'http://github.com/peta/redis-natives-py',
     'download_url': 'http://github.com/downloads/peta/redis-natives-py/redis-natives-py-%s.zip' % version,
-    'author': 'Peter Geil',
-    'author_email': 'code@petergeil.name',
-    'maintainer': 'Peter Geil',
-    'maintainer_email': 'code@petergeil.name',
+    'author': ['Konsta Vesterinen', 'Peter Geil'],
+    'author_email': 'konsta.vesterinen@gmail.com',
+    'maintainer': 'Konsta Vesterinen',
+    'maintainer_email': 'konsta.vesterinen@gmail.com',
     'keywords': ['Redis', 'key-value store', 'redis-py', 'datatypes', 'natives', 'helper'],
     'license': 'BSD',
     'packages': ['redis_natives'],
