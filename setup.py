@@ -1,11 +1,8 @@
 #!/usr/bin/env python
-
-"""
-@file setup.py
-@author Peter Geil
-@date 8/7/2010
-@brief Setuptools configuration for redis-natives-py
-"""
+try:
+    from setuptools import setup
+except ImportError:
+    from distutils import setup
 
 version = '0.12'
 
@@ -35,9 +32,5 @@ sdict = {
         'Topic :: Database'],
 }
 
-try:
-    from setuptools import setup
-except ImportError:
-    from distutils.core import setup
 
 setup(**sdict)
