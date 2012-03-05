@@ -7,7 +7,9 @@ __author__ = 'Peter Geil'
 
 from functools import partial
 
-from redis_natives.datatypes import Set, Primitive
+from .set import Set
+from .datatypes import Primitive
+
 
 __all__ = (
     "temporary",

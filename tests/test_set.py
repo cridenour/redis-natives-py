@@ -1,5 +1,5 @@
 from redis import Redis
-from redis_natives.datatypes import Set
+from redis_natives import Set
 from tests import RedisWrapper
 
 
