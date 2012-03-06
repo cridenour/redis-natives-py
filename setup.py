@@ -4,7 +4,7 @@ try:
 except ImportError:
     from distutils import setup
 
-version = '0.12'
+version = '0.13'
 
 sdict = {
     'name': 'redis_natives',

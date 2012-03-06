@@ -1,5 +1,6 @@
 from .errors import RedisValueError, RedisTypeError
-from .datatypes import RedisSortable, Sequence
+from .datatypes import RedisSortable
+from collections import Sequence
 
 
 class List(RedisSortable, Sequence):
@@ -43,9 +44,17 @@ class List(RedisSortable, Sequence):
 
     def __getitem__(self, key):
         if isinstance(key, slice):
+            stop = key.stop
+            if stop is None:
+                stop = -1
+            else:
+                stop -= 1
+            start = key.start
+            if start is None:
+                start = 0
             return map(
                 self.type_convert,
-                self._client.lrange(self._key, key.start, key.stop)
+                self._client.lrange(self._key, start, stop)
             )
         else:
             return self.type_convert(self._client.lindex(self._key, key))
@@ -57,7 +66,11 @@ class List(RedisSortable, Sequence):
                 stop = self.__len__() - 1
             else:
                 stop = key.stop
-            for i in range(key.start, stop + 1):
+            start = key.start
+            if start is None:
+                start = 0
+
+            for i in range(start, stop + 1):
                 self._client.lset(self._key, i, value)
         else:
             return self._client.lset(self._key, key, value)

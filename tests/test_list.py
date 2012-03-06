@@ -1,5 +1,5 @@
 from redis import Redis
-from redis_natives.datatypes import List
+from redis_natives import List
 from tests import RedisWrapper
 
 
@@ -61,7 +61,7 @@ class TestList(object):
         assert self.list.redis_type == 'list'
 
 
-class TestListGetItem(object):
+class TestListSlicing(object):
     def setup_method(self, method):
         self.redis = RedisWrapper(Redis())
         self.redis.flushdb()
@@ -72,11 +72,17 @@ class TestListGetItem(object):
         self.list.append(3)
         self.list.append(4)
 
-    def test_length_returns_list_length(self):
-        assert len(self.list) == 4
-
     def test_get_list_item_by_range(self):
-        assert self.list[0:-1] == ['1', '2', '3', '4']
+        assert self.list[0:-1] == ['1', '2', '3']
+
+    def test_get_list_item_by_range_with_open_end(self):
+        assert self.list[0:] == ['1', '2', '3', '4']
+
+    def test_get_list_item_by_range_with_open_start(self):
+        assert self.list[:2] == ['1', '2']
+
+    def test_get_list_item_by_range_with_open_start_and_end(self):
+        assert self.list[:] == ['1', '2', '3', '4']
 
     def test_get_list_item(self):
         assert self.list[1] == '2'
@@ -89,6 +95,18 @@ class TestListGetItem(object):
         self.list[1:2] = 5
         assert self.list[1] == '5'
         assert self.list[2] == '5'
+
+    def test_set_list_item_by_range_with_open_end(self):
+        self.list[2:] = '5'
+        assert self.list[:] == ['1', '2', '5', '5']
+
+    def test_set_list_item_by_range_with_open_start(self):
+        self.list[:2] = '5'
+        assert self.list[:2] == ['5', '5']
+
+    def test_set_list_item_by_range_with_open_start_and_end(self):
+        self.list[:] = '5'
+        assert self.list[:] == ['5', '5', '5', '5']
 
     def test_pop(self):
         self.list.pop() == '4'
@@ -110,7 +128,7 @@ class TestIntegerList(object):
         assert len(self.list) == 4
 
     def test_get_list_item_by_range(self):
-        assert self.list[0:-1] == [1, 2, 3, 4]
+        assert self.list[0:-1] == [1, 2, 3]
 
     def test_get_list_item(self):
         assert self.list[1] == 2
@@ -165,7 +183,7 @@ class TestBooleanList(object):
         assert len(self.list) == 4
 
     def test_get_list_item_by_range(self):
-        assert self.list[0:-1] == [True, False, True, True]
+        assert self.list[0:-1] == [True, False, True]
 
     def test_get_list_item(self):
         assert self.list[1] == False

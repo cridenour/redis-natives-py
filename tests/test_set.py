@@ -46,6 +46,11 @@ class TestSet(object):
         self.set.add(1)
         assert self.set.redis_type == 'set'
 
+    def test_union(self):
+        self.set.add(1)
+        self.set = self.set.union(['2', '3'])
+        assert self.set == set(['1', '2', '3'])
+
 
 class TestIntegerSet(object):
     def setup_method(self, method):

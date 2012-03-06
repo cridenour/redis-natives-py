@@ -36,6 +36,10 @@ class ZSet(RedisSortable, Comparable):
                 self._pipe.zadd(val, score)
             self._pipe.execute()
 
+    @property
+    def data(self):
+        return self._client.zrange(self.key, 0, -1, withscores=True)
+
     def __len__(self):
         return self._client.zcard(self.key)
 
@@ -43,10 +47,10 @@ class ZSet(RedisSortable, Comparable):
         return self._client.zscore(self.key, value) is not None
 
     def __and__(self, other):
-        return self._client.zrange(self.key, 0, -1) and other
+        return self.data and other
 
     def __or__(self, other):
-        return self._client.zrange(self.key, 0, -1) or other
+        return self.data or other
 
     def __iter__(self):
         # TODO: Is there a better way than getting ALL at once?
@@ -56,9 +60,33 @@ class ZSet(RedisSortable, Comparable):
     def __repr__(self):
         return str(self._client.zrange(self.key, 0, -1, withscores=True))
 
-    #==========================================================================
-    # Native set methods
-    #==========================================================================
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            stop = key.stop
+            if stop is None:
+                stop = -1
+            else:
+                stop -= 1
+            start = key.start
+            if start is None:
+                start = 0
+            return map(
+                self.type_convert,
+                self._client.zrange(self._key, start, stop)
+            )
+        else:
+            return self.type_convert(
+                self._client.zrange(self._key, key, key)[0]
+            )
+
+    def __setitem__(self, key, value):
+        value = self.type_prepare(value)
+        if isinstance(key, slice):
+            raise TypeError('Setting slice ranges not supported for zsets.')
+        else:
+            item, rank = self._client.zrange(self._key, key, key,
+                withscores=True)[0]
+            return self._client.zadd(self._key, value, rank)
 
     def add(self, el, score):
         """
@@ -103,10 +131,6 @@ class ZSet(RedisSortable, Comparable):
                          .zremrangebyrank(self.key, idx, idx) \
                    .execute()[0][0]
         return self.type(value)
-
-    #==========================================================================
-    # Custom methods
-    #==========================================================================
 
     def incr_score(self, el, by=1):
         """

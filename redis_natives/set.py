@@ -1,5 +1,5 @@
 from time import time
-from .errors import RedisTypeError
+from .errors import RedisTypeError, RedisKeyError
 from .datatypes import RedisSortable, Comparable
 
 
@@ -27,11 +27,11 @@ class Set(RedisSortable, Comparable):
 
     def __and__(self, other):
         # Remove __and__ due to inefficiency?
-        return self._client.smembers(self.key) and other
+        return self.data and other
 
     def __or__(self, other):
         # Remove __or__ due to inefficiency?
-        return self._client.smembers(self.key) or other
+        return self.data or other
 
     def __iter__(self):
         # TODO: Is there a better way than getting ALL at once?
@@ -40,6 +40,10 @@ class Set(RedisSortable, Comparable):
 
     def __repr__(self):
         return str(self._client.smembers(self.key))
+
+    @property
+    def data(self):
+        return self._client.smembers(self.key)
 
     def add(self, el):
         """
@@ -159,9 +163,16 @@ class Set(RedisSortable, Comparable):
         """
         Return the union of this set and others as new set
         """
-        rsetKeys, setElems = self._splitBySetType(*others)
-        rsetElems = self._client.sunion(rsetKeys)
-        return rsetElems.union(setElems)
+        rset_keys, set_elems = self._splitBySetType(*others)
+        if rset_keys:
+            rset = self._client.sunion(rset_keys)
+        else:
+            rset = self
+        if set_elems:
+            data = rset.data
+            for element in set_elems:
+                data.add(element)
+        return data
 
     def update(self, *others):
         """
