@@ -132,13 +132,11 @@ class TestIntegerZSet(object):
 
     def test_remove(self):
         self.zset.add(1, 2)
-
         self.zset.discard(1)
         assert len(self.zset) == 0
 
     def test_pop(self):
         self.zset.add(1, 2)
-
         assert self.zset.pop() == 1
         assert len(self.zset) == 0
 
