@@ -28,17 +28,24 @@ class ZSet(RedisSortable, Comparable):
 
     __slots__ = ("_key", "_client", "_pipe")
 
-    def __init__(self, client, key, iter=[]):
-        super(ZSet, self).__init__(client, key)
+    def __init__(self, client, key, iter=[], type=str):
+        super(ZSet, self).__init__(client, key, type=type)
+
         if hasattr(iter, "__iter__") and len(iter):
             # TODO: What if the key already exists?
             for score, val in iter:
                 self._pipe.zadd(val, score)
             self._pipe.execute()
 
+    def type_convert_tuple(self, value):
+        return (self.type_convert(value[0]), value[1])
+
     @property
     def data(self):
-        return self._client.zrange(self.key, 0, -1, withscores=True)
+        return map(
+            self.type_convert_tuple,
+            self._client.zrange(self.key, 0, -1, withscores=True)
+        )
 
     def __len__(self):
         return self._client.zcard(self.key)
@@ -54,11 +61,11 @@ class ZSet(RedisSortable, Comparable):
 
     def __iter__(self):
         # TODO: Is there a better way than getting ALL at once?
-        for score, el in self._client.zrange(self.key, 0, -1, withscores=True):
-            yield (score, el)
+        for el, score in self.data:
+            yield (el, score)
 
     def __repr__(self):
-        return str(self._client.zrange(self.key, 0, -1, withscores=True))
+        return str(self.data)
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -71,12 +78,12 @@ class ZSet(RedisSortable, Comparable):
             if start is None:
                 start = 0
             return map(
-                self.type_convert,
-                self._client.zrange(self._key, start, stop)
+                self.type_convert_tuple,
+                self._client.zrange(self._key, start, stop, withscores=True)
             )
         else:
-            return self.type_convert(
-                self._client.zrange(self._key, key, key)[0]
+            return self.type_convert_tuple(
+                self._client.zrange(self._key, key, key, withscores=True)[0]
             )
 
     def __setitem__(self, key, value):

@@ -46,10 +46,107 @@ class TestSet(object):
         self.set.add(1)
         assert self.set.redis_type == 'set'
 
+    def test_intersection(self):
+        self.set.add(1)
+        self.set.add(2)
+        self.set.add(3)
+
+        assert self.set.intersection(set(['1', '2'])) == set(['1', '2'])
+
+    def test_and_operator(self):
+        self.set.add(1)
+        self.set.add(2)
+        self.set.add(3)
+
+        assert self.set & set(['1', '2']) == set(['1', '2'])
+
+    def test_intersection_update(self):
+        self.set.add(1)
+        self.set.add(2)
+        self.set.add(3)
+        self.set.intersection_update(set(['1', '2']))
+        assert self.set.data == set(['1', '2'])
+
+    def test_and_assignment_operator(self):
+        self.set.add(1)
+        self.set.add(2)
+        self.set.add(3)
+        self.set &= set(['1', '2'])
+        assert self.set.data == set(['1', '2'])
+
+    def test_symmetric_difference(self):
+        self.set.add(1)
+        self.set.add(2)
+        assert self.set.symmetric_difference(['2', '3']) == set(['1', '3'])
+
+    def test_xor_operator(self):
+        self.set.add(1)
+        self.set.add(2)
+        assert self.set ^ set(['2', '3']) ^ set(['4']) == set(['1', '3', '4'])
+
+    def test_symmetric_difference_update(self):
+        self.set.add(1)
+        self.set.add(2)
+        self.set.symmetric_difference_update(['2', '3'])
+        assert self.set.data == set(['1', '3'])
+
+    def test_xor_assignment_operator(self):
+        self.set.add(1)
+        self.set.add(2)
+        self.set ^= set(['2', '3'])
+        assert self.set.data == set(['1', '3'])
+
+    def test_difference(self):
+        self.set.add(1)
+        self.set.add(2)
+        self.set.add(3)
+
+        assert self.set.difference(set(['1', '2'])) == set(['3'])
+
+    def test_substraction_operator(self):
+        self.set.add(1)
+        self.set.add(2)
+        self.set.add(3)
+
+        assert self.set - set(['1', '2']) == set(['3'])
+
+    def test_difference_update(self):
+        self.set.add(1)
+        self.set.add(2)
+        self.set.add(3)
+        self.set.difference_update(set(['1', '2']))
+        assert self.set.data == set(['3'])
+
+    def test_substraction_assignment_operator(self):
+        self.set.add(1)
+        self.set.add(2)
+        self.set.add(3)
+        self.set -= set(['1', '2'])
+        assert self.set.data == set(['3'])
+
     def test_union(self):
         self.set.add(1)
         self.set = self.set.union(['2', '3'])
         assert self.set == set(['1', '2', '3'])
+
+    def test_or_operator(self):
+        self.set.add(1)
+        assert self.set | set(['2', '3']) == set(['1', '2', '3'])
+
+    def test_update(self):
+        self.set.add(1)
+        self.set.update(['2', '3'])
+        assert self.set.data == set(['1', '2', '3'])
+
+    def test_or_assignment_operator(self):
+        self.set.add(1)
+        self.set |= set(['2', '3'])
+        assert self.set.data == set(['1', '2', '3'])
+
+    def test_add_operator(self):
+        self.set.add(3)
+
+        assert self.set | set(['1', '2']) == set(['1', '2', '3'])
 
 
 class TestIntegerSet(object):
@@ -89,3 +186,105 @@ class TestIntegerSet(object):
     def test_redis_type(self):
         self.set.add(1)
         assert self.set.redis_type == 'set'
+
+    def test_intersection(self):
+        self.set.add(1)
+        self.set.add(2)
+        self.set.add(3)
+
+        assert self.set.intersection(set([1, 2])) == set([1, 2])
+
+    def test_and_operator(self):
+        self.set.add(1)
+        self.set.add(2)
+        self.set.add(3)
+
+        assert self.set & set([1, 2]) == set([1, 2])
+
+    def test_intersection_update(self):
+        self.set.add(1)
+        self.set.add(2)
+        self.set.add(3)
+        self.set.intersection_update(set([1, 2]))
+        assert self.set.data == set([1, 2])
+
+    def test_and_assignment_operator(self):
+        self.set.add(1)
+        self.set.add(2)
+        self.set.add(3)
+        self.set &= set([1, 2])
+        assert self.set.data == set([1, 2])
+
+    def test_symmetric_difference(self):
+        self.set.add(1)
+        self.set.add(2)
+        assert self.set.symmetric_difference([2, 3]) == set([1, 3])
+
+    def test_xor_operator(self):
+        self.set.add(1)
+        self.set.add(2)
+        assert self.set ^ set([2, 3]) ^ set([4]) == set([1, 3, 4])
+
+    def test_symmetric_difference_update(self):
+        self.set.add(1)
+        self.set.add(2)
+        self.set.symmetric_difference_update([2, 3])
+        assert self.set.data == set([1, 3])
+
+    def test_xor_assignment_operator(self):
+        self.set.add(1)
+        self.set.add(2)
+        self.set ^= set([2, 3])
+        assert self.set.data == set([1, 3])
+
+    def test_difference(self):
+        self.set.add(1)
+        self.set.add(2)
+        self.set.add(3)
+
+        assert self.set.difference(set([1, 2])) == set([3])
+
+    def test_substraction_operator(self):
+        self.set.add(1)
+        self.set.add(2)
+        self.set.add(3)
+
+        assert self.set - set([1, 2]) == set([3])
+
+    def test_difference_update(self):
+        self.set.add(1)
+        self.set.add(2)
+        self.set.add(3)
+        self.set.difference_update(set([1, 2]))
+        assert self.set.data == set([3])
+
+    def test_substraction_assignment_operator(self):
+        self.set.add(1)
+        self.set.add(2)
+        self.set.add(3)
+        self.set -= set([1, 2])
+        assert self.set.data == set([3])
+
+    def test_union(self):
+        self.set.add(1)
+        self.set = self.set.union([2, 3])
+        assert self.set == set([1, 2, 3])
+
+    def test_or_operator(self):
+        self.set.add(1)
+        assert self.set | set([2, 3]) == set([1, 2, 3])
+
+    def test_update(self):
+        self.set.add(1)
+        self.set.update([2, 3])
+        assert self.set.data == set([1, 2, 3])
+
+    def test_or_assignment_operator(self):
+        self.set.add(1)
+        self.set |= set([2, 3])
+        assert self.set.data == set([1, 2, 3])
+
+    def test_add_operator(self):
+        self.set.add(3)
+
+        assert self.set | set([1, 2]) == set([1, 2, 3])

@@ -26,12 +26,32 @@ class Set(RedisSortable, Comparable):
         return self._client.sismember(self.key, self.type_prepare(value))
 
     def __and__(self, other):
-        # Remove __and__ due to inefficiency?
-        return self.data and other
+        return self.intersection(other)
 
     def __or__(self, other):
-        # Remove __or__ due to inefficiency?
-        return self.data or other
+        return self.union(other)
+
+    def __sub__(self, other):
+        return self.difference(other)
+
+    def __xor__(self, other):
+        return self.symmetric_difference(other)
+
+    def __ior__(self, other):
+        self.update(other)
+        return self
+
+    def __iand__(self, other):
+        self.intersection_update(other)
+        return self
+
+    def __isub__(self, other):
+        self.difference_update(other)
+        return self
+
+    def __ixor__(self, other):
+        self.symmetric_difference_update(other)
+        return self
 
     def __iter__(self):
         # TODO: Is there a better way than getting ALL at once?
@@ -43,7 +63,7 @@ class Set(RedisSortable, Comparable):
 
     @property
     def data(self):
-        return self._client.smembers(self.key)
+        return set(map(self.type_convert, self._client.smembers(self.key)))
 
     def add(self, el):
         """
@@ -65,21 +85,28 @@ class Set(RedisSortable, Comparable):
         self._client.sunionstore(key, [self.key])
         return Set(key, self._client)
 
-    def difference(self, *others):
+    def difference(self, other):
         """
-        Return the difference between this set and others as new set
+        Return the difference between this set and other as new set
         """
-        rsetKeys, setElems = self._splitBySetType(*others)
-        rsetElems = self._client.sdiff(rsetKeys)
-        return rsetElems.difference(setElems)
+        rset_keys, set_elems = self._splitBySetType(other)
+        if rset_keys:
+            rset = self._client.sunion(rset_keys)
+        else:
+            rset = self
+        data = rset.data
+        if set_elems:
+            data -= set_elems
+        return data
 
     def difference_update(self, *others):
         """
         Remove all elements of other sets from this set
         """
         pipe = self._pipe
+        pipe.delete(self.key)
         for el in self.difference(*others):
-            pipe.srem(self.key, el)
+            pipe.sadd(self.key, el)
         pipe.execute()
 
     # TODO: Implement difference_copy?
@@ -94,18 +121,22 @@ class Set(RedisSortable, Comparable):
         """
         Return the intersection of this set and others as new set
         """
-        rsetKeys, setElems = self._splitBySetType(*others)
-        rsetElems = self._client.sinter(rsetKeys)
-        return rsetElems.intersection(setElems)
+        rsetKeys, set_elems = self._splitBySetType(*others)
+        data = self.data
+        if set_elems:
+            data = data.intersection(set_elems)
+        return data
 
     def intersection_update(self, *others):
         """
         Update this set with the intersection of itself and others
         """
         pipe = self._pipe
+        pipe.delete(self.key)
         for el in self.intersection(*others):
-            pipe.srem(self.key, el)
+            pipe.sadd(self.key, el)
         pipe.execute()
+        return self
 
     # TODO: Implement intersection_copy?
 
@@ -134,17 +165,21 @@ class Set(RedisSortable, Comparable):
         """
         Return the symmetric difference of this set and others as new set
         """
-        rsetKeys, setElems = self._splitBySetType(*others)
+        rset_keys, set_elems = self._splitBySetType(*others)
         # server-side caching
-        baseKey = int(time())
-        keyUnion, keyInter = baseKey + "union", baseKey + "inter"
-        rsetElems = self._pipe.sinterstore(keyUnion, rsetKeys) \
-                              .sunionstore(keyInter, rsetKeys) \
-                              .sdiff([keyUnion, keyInter]) \
-                              .delete(keyUnion) \
-                              .delete(keyInter) \
-                        .execute()[2]
-        return rsetElems.difference(setElems)
+        baseKey = str(int(time()))
+        keyUnion, keyInter = baseKey + 'union', baseKey + 'inter'
+        if rset_keys:
+            rsetElems = self._pipe.sinterstore(keyUnion, rset_keys) \
+                                  .sunionstore(keyInter, rset_keys) \
+                                  .sdiff([keyUnion, keyInter]) \
+                                  .delete(keyUnion) \
+                                  .delete(keyInter) \
+                            .execute()[2]
+        data = self.data
+        if set_elems:
+            data = data.symmetric_difference(set_elems)
+        return data
 
     def symmetric_difference_update(self, *others):
         """
@@ -156,6 +191,7 @@ class Set(RedisSortable, Comparable):
         for el in self.symmetric_difference(*others):
             pipe.sadd(self.key, el)
         pipe.execute()
+        return self
 
     # TODO: Implement symmetric_difference_copy?
 
@@ -192,12 +228,8 @@ class Set(RedisSortable, Comparable):
         rsetElems = self._client.sinter(rsetKeys)
         return rsetElems.isdisjoint(setElems)
 
-    def issubset(self, *other):
-        """
-        Return ``True`` if this set is contained by another set (subset)
-        """
-        # TODO: Implement
-        raise NotImplementedError("Set.issubset not implemented yet")
+    def issubset(self, other):
+        return self.data.issubset(other)
 
     def issuperset(self, other):
         """
@@ -216,15 +248,15 @@ class Set(RedisSortable, Comparable):
         Separates all ``sets`` into native ``sets`` and ``Sets``
         and returns them in two lists
         """
-        rsetKeys, setElems = [], []
+        rsetKeys, set_elements = [], []
         for s in sets:
             if isinstance(s, Set):
                 rsetKeys.append(s.key)
             elif isinstance(s, (set, list)):
-                setElems.extend(s)
+                set_elements.extend(s)
             else:
                 raise RedisTypeError("Object must me type of set/list")
-        return rsetKeys, setElems
+        return rsetKeys, set(set_elements)
 
     def grab(self):
         """
