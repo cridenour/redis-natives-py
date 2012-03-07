@@ -1,7 +1,7 @@
 # redis-natives-py #
 
-A thin abstraction layer on top of [redis-py](http://github.com/andymccurdy/redis-py) that 
-exposes Redis entities as native Python datatypes. Simple, plain but powerful. No ORMing 
+A thin abstraction layer on top of [redis-py](http://github.com/andymccurdy/redis-py) that
+exposes Redis entities as native Python datatypes. Simple, plain but powerful. No ORMing
 or model-messing -- this isn't the real purpose of high performance key-value-stores like Redis.
 
 # Available datatypes #
@@ -46,7 +46,7 @@ two lines in every example so don't wonder where ``rClient`` and ``rnatives`` ar
 
 	from redis import Redis
 	import redis_natives_py as rnatives
-	
+
 	# Our Redis client instance
 	rClient = Redis()
 
@@ -66,13 +66,13 @@ directly on the entity/instance you want:
 
 ## Primitive ##
 
-You can work with ``Primitive`` exactly as you'd like to with builtin Strings. Primitives expose the 
+You can work with ``Primitive`` exactly as you'd like to with builtin Strings. Primitives expose the
 same interface as String plus something more.
 
-	from rn.datatypes import Primitive
+	from redis_natives import Primitive
 
 	myTweet = Primitive(rClient, "message:123", "I love PlusFM!")
-	myTweet += " P.s.: Bassdrive too!"	
+	myTweet += " P.s.: Bassdrive too!"
 	print "What did I say? " + myTweet.upper()
 	# >> I LOVE PLUSFM! P.S.: BASSDRIVE TOO!
 
@@ -87,10 +87,24 @@ for incr-/decrementing values.
 	myCounter.decr(2)
 	# >> 4
 
+## List ##
+
+	from redis_natives import List
+	list = List(redis, 'some_list', type=int)
+	list.append(1)
+	list.append(2)
+	list.append(3)
+	list.append(4)
+
+	list[0:2] # [1, 2]
+
+	list[-2:] # [3, 4]
+
+
 ## Set ##
 
-You can work with ``Set`` exactly as you'd like to with builtin Sets. Set operations like ``difference`` and 
-``intersection`` are of course performed completely on the datastore-side. You even can pass an arbitrary number of Python sets 
+You can work with ``Set`` exactly as you'd like to with builtin Sets. Set operations like ``difference`` and
+``intersection`` are of course performed completely on the datastore-side. You even can pass an arbitrary number of Python sets
 and operate with them.
 
 	# No need to give an example on native Python Sets
@@ -101,56 +115,70 @@ and operate with them.
 
 #### Restrictions ####
 
-At the moment ``Set`` doesn't support the methods ``issubset(*others)`` and ``issuperset(other)``. But I will add them 
-soon. 
+At the moment ``Set`` doesn't support the methods ``issubset(*others)`` and ``issuperset(other)``. But I will add them
+soon.
 
-	
+
 ## ZSet ##
 
-A special datatype is the ``ZSet`` -- an ordered set. The main characteristic is the concept of a 
+A special datatype is the ``ZSet`` -- an ordered set. The main characteristic is the concept of a
 score associated to every set element.
 
 	from rn.datatypes import ZSet
 
-	mostPopular = ZSet(rClient, "rank:messages")
-	mostPopular.add("message:123", 0)
-	mostPopular.incr_score("message:123")
-	mostPopular.rank_of("message:123")
+	zset = ZSet(rClient, "rank:messages")
+	zset.add("message:123", 0)
+	zset.incr_score("message:123")
+	zset.rank_of("message:123")
 	# > 1
-	
+
 And when you want to query the 10 most popular messages:
 
 	from random import randint
 	from rn.datatypes import ZSet
 
-	mostPopular = ZSet(rClient, "rank:messages")
-	
+	zset = ZSet(rClient, "rank:messages")
+
 	for i in range(20):
-		mostPopular.add("message:%s" % i, 0)
+		zset.add("message:%s" % i, 0)
 	for i in range(20):
-		mostPopular.incr_score("message:%s" % randint(0, 19))
+		zset.incr_score("message:%s" % randint(0, 19))
 	# Will return the Top-10
-	mostPopular.range_by_rank(0, 10, ZOrder.DESC)
- 
+	zset.range_by_rank(0, 10, ZOrder.DESC)
+
+Getting all values in a zset:
+
+	zset.data
+
+Returning slices:
+
+	zset[0:3] # get the first three items by rank
+
+Replacing an item:
+
+	# replace the value of the second ranked item, keeping its current score
+	zset[1] = 'some value'
+
+
 ## Dict ##
 
-You can work with ``Dict`` exactly as you'd like to with builtin Dicts. 
+You can work with ``Dict`` exactly as you'd like to with builtin Dicts.
 
 	# No need to give an example on native Python Dicts
 
 #### Special methods ####
 
-``Dict`` has an additional method called ``incr(key, by=1)`` that increments the value associated to ``key`` 
+``Dict`` has an additional method called ``incr(key, by=1)`` that increments the value associated to ``key``
 by a given ``int``.
 
 ## Sequence ##
 
-The ``Sequence`` datatype implements all functions of ``Redis list`` datatypes. 
-Compared to ``List``, a ``Sequence`` doesn't try to meme a native 
-``list`` datatype but instead exposes all native functionalities of Redis 
+The ``Sequence`` datatype implements all functions of ``Redis list`` datatypes.
+Compared to ``List``, a ``Sequence`` doesn't try to meme a native
+``list`` datatype but instead exposes all native functionalities of Redis
 for working with list datatypes.
 
-A typical use-case where this functionality is needed are f.e. FIFO/LIFO 
+A typical use-case where this functionality is needed are f.e. FIFO/LIFO
 processings. (stacks/queues)
 
 	lookupQueue = Sequence(rClient, "ipLookups")
@@ -162,19 +190,19 @@ processings. (stacks/queues)
 
 # Examples - Annotations & RedisNativeFactory #
 
-When you work with with ``redis_natives`` it might become odd to everytime pass in an instance of ``redis.Redis`` or 
-to keep track created keys. Even more when you work with pseudo-namespaces (f.e. "global:counter:message") and construct 
-the key names in advance. That's why I introduced ``annotations`` that can be applied to a custom ``RedisNativeFactory`` 
+When you work with with ``redis_natives`` it might become odd to everytime pass in an instance of ``redis.Redis`` or
+to keep track created keys. Even more when you work with pseudo-namespaces (f.e. "global:counter:message") and construct
+the key names in advance. That's why I introduced ``annotations`` that can be applied to a custom ``RedisNativeFactory``
 subclass.
 
 ## RedisNativeFactory ##
 
-Creates instances of Redis natives with a preset ``Redis`` client and one or more optional annotation hooks. Normally 
+Creates instances of Redis natives with a preset ``Redis`` client and one or more optional annotation hooks. Normally
 you won't use ``RedisNativeFactory`` directly, instead create a custom subclass for every entity type requirement you
 have. Create as many subclasses as you want/need whereby you can annotate each subclass individually.
 
-Note 1: You should override the inherited ``before_create`` and ``after_create`` lists with new ones, otherwise the 
-annotations you add will be applied to *all* ``RedisNativeFactory`` subclasses. 
+Note 1: You should override the inherited ``before_create`` and ``after_create`` lists with new ones, otherwise the
+annotations you add will be applied to *all* ``RedisNativeFactory`` subclasses.
 
 Note 2: ``RedisNativeFactory`` is implemented as Singleton. Instead of requesting the shared instance over and over again, keep a reference to
 the returned instance (basically a constructor function) under an appropriately named variable.
@@ -182,7 +210,7 @@ the returned instance (basically a constructor function) under an appropriately 
 ## @namespaced(ns, sep=":") ##
 
 To implicitly embed created keys in one or more namespaces, you use the annotation called ``namespaced(ns, sep=":")``.
-They're applied using the decorator syntax to you custom ``RedisNativeFactory`` subclass. Namespaces are constructed from 
+They're applied using the decorator syntax to you custom ``RedisNativeFactory`` subclass. Namespaces are constructed from
 top to bottowm whereat you can combine as many namespaces as you like.
 
 	from rn.natives import RedisNativeFactory
@@ -233,8 +261,8 @@ __Note Redis' [special handling of volatile keys](http://code.google.com/p/redis
 
 ## @indexed(idxSet) ##
 
-When you keep reversed/additional indexes of certain entities the annotation called ``indexed(idxSet)`` will be handy for you. 
-For every entity created by the annotated ``RedisNativeFactory`` it will automatically add the entity's key to the given Redis ``Set`` 
+When you keep reversed/additional indexes of certain entities the annotation called ``indexed(idxSet)`` will be handy for you.
+For every entity created by the annotated ``RedisNativeFactory`` it will automatically add the entity's key to the given Redis ``Set``
 ``idxSet``.
 
 	from rn.natives import RedisNativeFactory
@@ -255,7 +283,7 @@ For every entity created by the annotated ``RedisNativeFactory`` it will automat
 
 ## @incremental(rPrim) ##
 
-When you annotate a ``RedisNativeFactory`` with ``@incremental(rPrim)`` the given Redis ``Primitive`` ``rPrim`` will be incremented 
+When you annotate a ``RedisNativeFactory`` with ``@incremental(rPrim)`` the given Redis ``Primitive`` ``rPrim`` will be incremented
 by value 1 for every entity created.
 
 	from rn.natives import RedisNativeFactory
@@ -279,8 +307,8 @@ by value 1 for every entity created.
 
 ## @autonamed(obj) ##
 
-Instead of passing a key-name for every entity to the Datatype constructor, you pass an __arbitrary__ object that is 
-__representable as ``str``__ and everytime an entity creation is triggered, ``obj`` is asked to return a ``str`` 
+Instead of passing a key-name for every entity to the Datatype constructor, you pass an __arbitrary__ object that is
+__representable as ``str``__ and everytime an entity creation is triggered, ``obj`` is asked to return a ``str``
 representation of itself that will be used as key name.
 
 	from rn.natives import RedisNativeFactory
@@ -304,10 +332,10 @@ representation of itself that will be used as key name.
 	print latestKey.key + ": " + latestKey
 	# > id-100: msgbody-99
 
-_Note that ``latestKey.key`` has 100 as suffix just because the annotation ``incremental`` was applied before ``autonamed``. Switch 
+_Note that ``latestKey.key`` has 100 as suffix just because the annotation ``incremental`` was applied before ``autonamed``. Switch
 their order, and ``latestKey.key`` will have the same suffix as the message body._
 
 # Demo: URL shorter service (Will follow soon) #
 
-Interesting demo project that shows how to use _redis-natives-py_ together with [bottle.py]() 
+Interesting demo project that shows how to use _redis-natives-py_ together with [bottle.py]()
 in order to write a full-fledged URL shortener service that even offers hit tracking and statistics.
