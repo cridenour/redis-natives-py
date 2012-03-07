@@ -1,5 +1,6 @@
+from collections import MutableMapping
 from .errors import RedisKeyError
-from .datatypes import RedisDataType, MutableMapping
+from .datatypes import RedisDataType
 
 
 class Dict(RedisDataType, MutableMapping):

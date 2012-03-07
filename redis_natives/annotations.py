@@ -8,7 +8,7 @@ __author__ = 'Peter Geil'
 from functools import partial
 
 from .set import Set
-from .datatypes import Primitive
+from .primitive import Primitive
 
 
 __all__ = (

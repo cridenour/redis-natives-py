@@ -1,9 +1,9 @@
 from time import time
 from .errors import RedisTypeError, RedisKeyError
-from .datatypes import RedisSortable, Comparable
+from .datatypes import RedisSortable, Comparable, SetOperatorMixin
 
 
-class Set(RedisSortable, Comparable):
+class Set(RedisSortable, Comparable, SetOperatorMixin):
     """
     Re-implements the complete interface of the native ``set`` datatype
     as a bound ``RedisDataType``. Use it exactly as you'd use a ``set``.
@@ -25,38 +25,10 @@ class Set(RedisSortable, Comparable):
     def __contains__(self, value):
         return self._client.sismember(self.key, self.type_prepare(value))
 
-    def __and__(self, other):
-        return self.intersection(other)
-
-    def __or__(self, other):
-        return self.union(other)
-
-    def __sub__(self, other):
-        return self.difference(other)
-
-    def __xor__(self, other):
-        return self.symmetric_difference(other)
-
-    def __ior__(self, other):
-        self.update(other)
-        return self
-
-    def __iand__(self, other):
-        self.intersection_update(other)
-        return self
-
-    def __isub__(self, other):
-        self.difference_update(other)
-        return self
-
-    def __ixor__(self, other):
-        self.symmetric_difference_update(other)
-        return self
-
     def __iter__(self):
         # TODO: Is there a better way than getting ALL at once?
-        for el in self._client.smembers(self.key):
-            yield self.type_convert(el)
+        for el in self.data:
+            yield el
 
     def __repr__(self):
         return str(self._client.smembers(self.key))
@@ -237,10 +209,6 @@ class Set(RedisSortable, Comparable):
         """
         # TODO: Implement
         raise NotImplementedError("Set.issuperset not implemented yet")
-
-    #=========================================================================
-    # Custom methods
-    #=========================================================================
 
     @staticmethod
     def _splitBySetType(*sets):

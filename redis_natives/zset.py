@@ -1,6 +1,6 @@
 from random import randint
 from .errors import RedisKeyError
-from .datatypes import RedisSortable, Comparable
+from .datatypes import RedisSortable, Comparable, SetOperatorMixin
 
 
 class ZOrder(object):
@@ -19,7 +19,7 @@ class ZOrder(object):
         return 1
 
 
-class ZSet(RedisSortable, Comparable):
+class ZSet(RedisSortable, Comparable, SetOperatorMixin):
     """
     An Ordered-set datatype for Python. It's a mixture between Redis' ``ZSet``
     and a simple Set-type. Main difference is the concept of a score associated
@@ -52,12 +52,6 @@ class ZSet(RedisSortable, Comparable):
 
     def __contains__(self, value):
         return self._client.zscore(self.key, value) is not None
-
-    def __and__(self, other):
-        return self.data and other
-
-    def __or__(self, other):
-        return self.data or other
 
     def __iter__(self):
         # TODO: Is there a better way than getting ALL at once?
@@ -118,6 +112,81 @@ class ZSet(RedisSortable, Comparable):
         # TODO: Return native set-object instead of bound redis item?
         self._client.zunionstore(key, [self.key])
         return ZSet(key, self._client)
+
+    def union(self, *others):
+        """
+        Return the union of this set and others as new set
+        """
+        data = set(self.data)
+        for other in others:
+            for element in other:
+                data.add(element)
+        return data
+
+    def update(self, *others):
+        """
+        Return the union of this set and others as new set
+        """
+        for element in self.union(*others):
+            self._pipe.zadd(self.key, element[0], element[1])
+        self._pipe.execute()
+
+    def intersection(self, *others):
+        """
+        Return the intersection of this set and others as new set
+        """
+        data = set(self.data)
+        for other in others:
+            data = data.intersection(other)
+        return data
+
+    def intersection_update(self, *others):
+        """
+        Update this set with the intersection of itself and others
+        """
+        pipe = self._pipe
+        pipe.delete(self.key)
+        for element in self.intersection(*others):
+            pipe.zadd(self.key, element[0], element[1])
+        pipe.execute()
+        return self
+
+    def difference(self, *others):
+        """
+        Return the difference between this set and other as new set
+        """
+        data = set(self.data)
+        for other in others:
+            data -= other
+        return data
+
+    def difference_update(self, *others):
+        """
+        Remove all elements of other sets from this set
+        """
+        pipe = self._pipe
+        pipe.delete(self.key)
+        for element in self.difference(*others):
+            pipe.zadd(self.key, element[0], element[1])
+        pipe.execute()
+
+    def symmetric_difference(self, *others):
+        """
+        Return the symmetric difference of this set and others as new set
+        """
+        data = set(self.data)
+        for other in others:
+            data = data.symmetric_difference(other)
+        return data
+
+    def symmetric_difference_update(self, *others):
+        """
+        Update this set with the symmetric difference of itself and others
+        """
+        self._pipe.delete(self.key)
+        for element in self.symmetric_difference(*others):
+            self._pipe.zadd(self.key, element[0], element[1])
+        self._pipe.execute()
 
     def clear(self):
         """

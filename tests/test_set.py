@@ -191,14 +191,12 @@ class TestIntegerSet(object):
         self.set.add(1)
         self.set.add(2)
         self.set.add(3)
-
         assert self.set.intersection(set([1, 2])) == set([1, 2])
 
     def test_and_operator(self):
         self.set.add(1)
         self.set.add(2)
         self.set.add(3)
-
         assert self.set & set([1, 2]) == set([1, 2])
 
     def test_intersection_update(self):
@@ -241,14 +239,12 @@ class TestIntegerSet(object):
         self.set.add(1)
         self.set.add(2)
         self.set.add(3)
-
         assert self.set.difference(set([1, 2])) == set([3])
 
     def test_substraction_operator(self):
         self.set.add(1)
         self.set.add(2)
         self.set.add(3)
-
         assert self.set - set([1, 2]) == set([3])
 
     def test_difference_update(self):
@@ -286,5 +282,4 @@ class TestIntegerSet(object):
 
     def test_add_operator(self):
         self.set.add(3)
-
         assert self.set | set([1, 2]) == set([1, 2, 3])
