@@ -4,6 +4,7 @@ from .set import Set
 from .dict import Dict
 from .zset import ZSet
 from .list import List
+from .scalar import Scalar
 
 
 __version__ = '0.12'
@@ -13,8 +14,9 @@ __all__ = (
     'natives',
     'annotations',
     'errors',
-    Set,
     Dict,
+    List,
+    Scalar,
+    Set,
     ZSet,
-    List
 )
