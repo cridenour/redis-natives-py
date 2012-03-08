@@ -8,7 +8,7 @@ __author__ = 'Peter Geil'
 from functools import partial
 
 from .set import Set
-from .primitive import Primitive
+from .scalar import Scalar
 
 
 __all__ = (
@@ -83,14 +83,14 @@ def _incrementalWrapper(rPrim, cls):
     return cls
 
 
-def incremental(rPrim):
-    """Increments ``RedisPrimitive`` ``rPrim`` by value 1 for each
+def incremental(scalar):
+    """Increments ``Scalar`` ``rPrim`` by value 1 for each
     created key.
     """
-    if not isinstance(rPrim, Primitive):
+    if not isinstance(scalar, Scalar):
         return lambda cls: cls
     else:
-        return partial(_incrementalWrapper, rPrim)
+        return partial(_incrementalWrapper, scalar)
 
 
 def _autonamedWrapper(name, cls):
