@@ -5,6 +5,7 @@ from .dict import Dict
 from .zset import ZSet
 from .list import List
 from .scalar import Scalar
+from .key_mapper import KeyMapper
 
 
 __version__ = '0.12'

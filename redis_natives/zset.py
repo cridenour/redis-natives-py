@@ -28,20 +28,40 @@ class ZSet(RedisSortable, Comparable, SetOperatorMixin):
 
     __slots__ = ("_key", "_client", "_pipe")
 
-    def __init__(self, client, key, iter=[], type=str):
+    def __init__(self, client, key, iter=[], type=str, withscores=True):
         super(ZSet, self).__init__(client, key, type=type)
+        self._withscores = withscores
 
         if hasattr(iter, "__iter__") and len(iter):
             # TODO: What if the key already exists?
             for score, val in iter:
                 self._pipe.zadd(val, score)
             self._pipe.execute()
+        self.tuple2scalar = lambda a: a[0]
 
     def type_convert_tuple(self, value):
-        return (self.type_convert(value[0]), value[1])
+        if isinstance(value, tuple):
+            return (self.type_convert(value[0]), value[1])
+        else:
+            return self.type_convert(value)
 
     @property
     def data(self):
+        return map(
+            self.type_convert_tuple,
+            self._client.zrange(self.key, 0, -1,
+                withscores=True)
+        )
+
+    @property
+    def values(self):
+        return map(
+            self.type_convert_tuple,
+            self._client.zrange(self.key, 0, -1)
+        )
+
+    @property
+    def items(self):
         return map(
             self.type_convert_tuple,
             self._client.zrange(self.key, 0, -1, withscores=True)
@@ -55,8 +75,12 @@ class ZSet(RedisSortable, Comparable, SetOperatorMixin):
 
     def __iter__(self):
         # TODO: Is there a better way than getting ALL at once?
-        for el, score in self.data:
-            yield (el, score)
+        if self._withscores:
+            data = self.items
+        else:
+            data = self.values
+        for item in data:
+            yield item
 
     def __repr__(self):
         return str(self.data)
@@ -73,11 +97,13 @@ class ZSet(RedisSortable, Comparable, SetOperatorMixin):
                 start = 0
             return map(
                 self.type_convert_tuple,
-                self._client.zrange(self._key, start, stop, withscores=True)
+                self._client.zrange(self._key, start, stop,
+                    withscores=self._withscores)
             )
         else:
             return self.type_convert_tuple(
-                self._client.zrange(self._key, key, key, withscores=True)[0]
+                self._client.zrange(self._key, key, key,
+                    withscores=self._withscores)[0]
             )
 
     def __setitem__(self, key, value):
@@ -86,7 +112,7 @@ class ZSet(RedisSortable, Comparable, SetOperatorMixin):
             raise TypeError('Setting slice ranges not supported for zsets.')
         else:
             item, rank = self._client.zrange(self._key, key, key,
-                withscores=True)[0]
+                withscores=self._withscores)[0]
             return self._client.zadd(self._key, value, rank)
 
     def add(self, el, score):
@@ -268,12 +294,12 @@ class ZSet(RedisSortable, Comparable, SetOperatorMixin):
                     self.redis_key,
                     before - 1,
                     before - 1 - limit - treshold,
-                    withscores=True)
+                    withscores=self._withscores)
                 if before <= 0:
                     break
                 before -= limit + self.treshold
 
-        return map(self.type_convert, items[:limit])
+        return map(self.type_convert_tuple, items[:limit])
 
     def grab(self):
         """
