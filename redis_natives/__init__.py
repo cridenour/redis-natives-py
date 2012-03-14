@@ -20,4 +20,5 @@ __all__ = (
     Scalar,
     Set,
     ZSet,
+    KeyMapper
 )
