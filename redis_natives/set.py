@@ -62,24 +62,37 @@ class Set(RedisSortable, Comparable, SetOperatorMixin):
         Return the difference between this set and other as new set
         """
         rset_keys, sets = self._split_by_type(others)
-        if rset_keys:
-            rset = self._client.sunion(rset_keys)
-        else:
-            rset = self
-        data = rset.data
+        pipe = self._pipe
+        temporary_key = '__temp__'
         if sets:
+            rset_keys.append(temporary_key)
             for native_set in sets:
-                data -= native_set
-        return data
+                for element in native_set:
+                    pipe.sadd(temporary_key, element)
+
+        if rset_keys:
+            rset_keys.insert(0, self.key)
+            pipe.sdiff(rset_keys)
+        pipe.delete(temporary_key)
+        return set(map(self.type_convert, pipe.execute()[-2]))
 
     def difference_update(self, *others):
         """
         Remove all elements of other sets from this set
         """
+        rset_keys, sets = self._split_by_type(others)
         pipe = self._pipe
-        pipe.delete(self.key)
-        for el in self.difference(*others):
-            pipe.sadd(self.key, el)
+        temporary_key = '__temp__'
+        if sets:
+            rset_keys.append(temporary_key)
+            for native_set in sets:
+                for element in native_set:
+                    pipe.sadd(temporary_key, element)
+
+        if rset_keys:
+            rset_keys.insert(0, self.key)
+            pipe.sdiffstore(self.key, rset_keys)
+        pipe.delete(temporary_key)
         pipe.execute()
 
     # TODO: Implement difference_copy?
@@ -95,11 +108,23 @@ class Set(RedisSortable, Comparable, SetOperatorMixin):
         Return the intersection of this set and others as new set
         """
         rset_keys, sets = self._split_by_type(others)
-        data = self.data
+        pipe = self._pipe
+        temporary_key = '__temp__'
+        tmp_keys = []
         if sets:
-            for native_set in sets:
-                data = data.intersection(native_set)
-        return data
+            for index, native_set in enumerate(sets):
+                tmp_key = temporary_key + str(index)
+                tmp_keys.append(tmp_key)
+                rset_keys.append(tmp_key)
+                for element in native_set:
+                    pipe.sadd(tmp_key, element)
+
+        if rset_keys:
+            rset_keys.insert(0, self.key)
+            pipe.sinter(rset_keys)
+        for tmp_key in tmp_keys:
+            pipe.delete(tmp_key)
+        return set(map(self.type_convert, pipe.execute()[-2]))
 
     def intersection_update(self, *others):
         """
@@ -112,17 +137,20 @@ class Set(RedisSortable, Comparable, SetOperatorMixin):
         rset_keys, sets = self._split_by_type(others)
         pipe = self._pipe
         temporary_key = '__temp__'
+        tmp_keys = []
         if sets:
             for index, native_set in enumerate(sets):
                 tmp_key = temporary_key + str(index)
+                tmp_keys.append(tmp_key)
                 rset_keys.append(tmp_key)
                 for element in native_set:
                     pipe.sadd(tmp_key, element)
 
         if rset_keys:
-            rset_keys.append(self.key)
+            rset_keys.insert(0, self.key)
             pipe.sinterstore(self.key, rset_keys)
-        pipe.delete(temporary_key)
+        for tmp_key in tmp_keys:
+            pipe.delete(tmp_key)
         pipe.execute()
 
     # TODO: Implement intersection_copy?
@@ -152,34 +180,73 @@ class Set(RedisSortable, Comparable, SetOperatorMixin):
         """
         Return the symmetric difference of this set and others as new set
         """
-        rset_keys, sets = self._split_by_type(others)
-        # server-side caching
         baseKey = str(int(time()))
-        keyUnion, keyInter = baseKey + 'union', baseKey + 'inter'
-        if rset_keys:
-            rsetElems = self._pipe.sinterstore(keyUnion, rset_keys) \
-                                  .sunionstore(keyInter, rset_keys) \
-                                  .sdiff([keyUnion, keyInter]) \
-                                  .delete(keyUnion) \
-                                  .delete(keyInter) \
-                            .execute()[2]
-        data = self.data
-        if sets:
-            for native_set in sets:
-                data = data.symmetric_difference(native_set)
-        return data
+        key_union, key_inter = baseKey + 'union', baseKey + 'inter'
+
+        tmp_keys = []
+        redis_keys = [self.key]
+        for i, other in enumerate(others):
+            if isinstance(other, list):
+                other = set(other)
+
+            if isinstance(other, set):
+                tmp_key = '__tmp__' + str(i)
+                tmp_keys.append(tmp_key)
+                redis_keys.append(tmp_key)
+                for element in other:
+                    self._pipe.sadd(tmp_key, element)
+            elif isinstance(other, Set):
+                redis_keys.append(other.key)
+            else:
+                raise RedisTypeError("Object must me type of set/Set")
+
+        if redis_keys:
+            self._pipe.sinterstore(key_inter, redis_keys) \
+                .sunionstore(key_union, redis_keys)
+            for tmp_key in tmp_keys:
+                self._pipe.delete(tmp_key)
+
+            self._pipe.sdiff([key_union, key_inter]) \
+                .delete(key_union) \
+                .delete(key_inter)
+
+            return set(map(self.type_convert, self._pipe.execute()[-3]))
 
     def symmetric_difference_update(self, *others):
         """
         Update this set with the symmetric difference of itself and others
         """
-        pipe = self._pipe
-        # Probably faster than getting another diff + iteratively deleting then
-        pipe.delete(self.key)
-        for el in self.symmetric_difference(*others):
-            pipe.sadd(self.key, el)
-        pipe.execute()
-        return self
+        baseKey = str(int(time()))
+        key_union, key_inter = baseKey + 'union', baseKey + 'inter'
+
+        tmp_keys = []
+        redis_keys = [self.key]
+        for i, other in enumerate(others):
+            if isinstance(other, list):
+                other = set(other)
+
+            if isinstance(other, set):
+                tmp_key = '__tmp__' + str(i)
+                tmp_keys.append(tmp_key)
+                redis_keys.append(tmp_key)
+                for element in other:
+                    self._pipe.sadd(tmp_key, element)
+            elif isinstance(other, Set):
+                redis_keys.append(other.key)
+            else:
+                raise RedisTypeError("Object must me type of list/set/Set")
+
+        if redis_keys:
+            self._pipe.sinterstore(key_inter, redis_keys) \
+                .sunionstore(key_union, redis_keys)
+            for tmp_key in tmp_keys:
+                self._pipe.delete(tmp_key)
+
+            self._pipe.sdiffstore(self.key, [key_union, key_inter]) \
+                .delete(key_union) \
+                .delete(key_inter)
+
+            self._pipe.execute()
 
     # TODO: Implement symmetric_difference_copy?
 

@@ -46,6 +46,16 @@ class TestIntegerSetIntersection(IntegerSetTestCase):
         self.set.add(3)
         assert self.set.intersection(set([1, 2])) == set([1, 2])
 
+    def test_intersection_accepts_redis_sets(self):
+        self.set.add(1)
+        self.set.add(2)
+        self.set.add(3)
+        self.set.add(4)
+        self.other_set.add(2)
+        self.other_set.add(3)
+        args = [set([2, 3, 4]), self.other_set]
+        assert self.set.intersection(*args) == set([2, 3])
+
     def test_and_operator(self):
         self.set.add(1)
         self.set.add(2)
@@ -59,7 +69,7 @@ class TestIntegerSetIntersection(IntegerSetTestCase):
         self.set.intersection_update(set([1, 2]))
         assert self.set.data == set([1, 2])
 
-    def test_intersection_update_with_multiple_args(self):
+    def test_intersection_update_accepts_redis_sets(self):
         self.set.add(1)
         self.set.add(2)
         self.set.add(3)
@@ -75,3 +85,9 @@ class TestIntegerSetIntersection(IntegerSetTestCase):
         self.set.add(3)
         self.set &= set([1, 2])
         assert self.set.data == set([1, 2])
+
+    def test_deletes_all_temporary_keys(self):
+        self.set.add(1)
+        self.set.add(2)
+        self.set.intersection_update(set([2, 3, 4]), set([2]))
+        assert len(self.redis.keys()) == 1
