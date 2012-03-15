@@ -1,5 +1,5 @@
 from redis import Redis
-from redis_natives import Set
+from redis_natives import Set, ZSet
 
 
 class RedisWrapper(object):
@@ -33,3 +33,21 @@ class IntegerSetTestCase(RedisNativesTestCase):
         super(IntegerSetTestCase, self).setup_method(method)
         self.set = Set(self.redis, self.test_key, type=int)
         self.other_set = Set(self.redis, self.other_key, type=int)
+
+
+class ZSetTestCase(RedisNativesTestCase):
+    def setup_method(self, method):
+        super(ZSetTestCase, self).setup_method(method)
+        self.zset = ZSet(self.redis, self.test_key)
+        self.other_zset = ZSet(self.redis, self.other_key)
+        self.redis.flushdb()
+        self.redis.method_calls = []
+
+
+class IntegerZSetTestCase(RedisNativesTestCase):
+    def setup_method(self, method):
+        super(IntegerZSetTestCase, self).setup_method(method)
+        self.zset = ZSet(self.redis, self.test_key, type=int)
+        self.other_zset = ZSet(self.redis, self.other_key, type=int)
+        self.redis.flushdb()
+        self.redis.method_calls = []

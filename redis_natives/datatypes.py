@@ -157,6 +157,18 @@ class SetOperatorMixin(object):
         self.symmetric_difference_update(other)
         return self
 
+    def isdisjoint(self, *others):
+        """
+        Return ``True`` if this set and ``others`` have null intersection
+        """
+        return len(self.intersection(*others)) == 0
+
+    def issuperset(self, other):
+        """
+        Return ``True`` if this set is contained by another set (subset)
+        """
+        return len(self.union(other)) == len(self)
+
 
 class Comparable(object):
     def __gt__(self, other):

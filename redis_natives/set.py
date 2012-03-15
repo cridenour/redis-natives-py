@@ -218,20 +218,8 @@ class Set(RedisSortable, Comparable, SetOperatorMixin):
             self._delete_temporary()
             self._pipe.execute()
 
-    def isdisjoint(self, *others):
-        """
-        Return ``True`` if this set and ``others`` have null intersection
-        """
-        return len(self.intersection(*others)) == 0
-
     def issubset(self, other):
         return self.data.issubset(other)
-
-    def issuperset(self, other):
-        """
-        Return ``True`` if this set is contained by another set (subset)
-        """
-        return len(self.union(other)) == len(self)
 
     def grab(self):
         """
