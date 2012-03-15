@@ -222,9 +222,7 @@ class Set(RedisSortable, Comparable, SetOperatorMixin):
         """
         Return ``True`` if this set and ``others`` have null intersection
         """
-        rsetKeys, setElems = self._split_by_type(others)
-        rsetElems = self._client.sinter(rsetKeys)
-        return rsetElems.isdisjoint(setElems)
+        return len(self.intersection(*others)) == 0
 
     def issubset(self, other):
         return self.data.issubset(other)
@@ -233,8 +231,7 @@ class Set(RedisSortable, Comparable, SetOperatorMixin):
         """
         Return ``True`` if this set is contained by another set (subset)
         """
-        # TODO: Implement
-        raise NotImplementedError("Set.issuperset not implemented yet")
+        return len(self.union(other)) == len(self)
 
     def grab(self):
         """

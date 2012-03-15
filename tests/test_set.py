@@ -62,6 +62,11 @@ class TestIntegerSet(IntegerSetTestCase):
         self.set.add(1)
         assert 1 in self.set
 
+    def test_clear(self):
+        self.set.add(1)
+        self.set.clear()
+        assert len(self.set) == 0
+
     def test_iterator(self):
         self.set.add(1)
         self.set.add(2)
@@ -70,3 +75,25 @@ class TestIntegerSet(IntegerSetTestCase):
     def test_redis_type(self):
         self.set.add(1)
         assert self.set.redis_type == 'set'
+
+    def test_issuperset(self):
+        self.set.add(1)
+        self.set.add(2)
+        self.other_set.add(2)
+        assert self.set.issuperset(self.other_set)
+        self.other_set.add(3)
+        assert not self.set.issuperset(self.other_set)
+
+    def test_issubset(self):
+        self.set.add(1)
+        self.other_set.add(2)
+        assert not self.set.issubset(self.other_set)
+        self.other_set.add(1)
+        assert self.set.issubset(self.other_set)
+
+    def test_isdisjoint(self):
+        self.set.add(1)
+        self.other_set.add(2)
+        assert self.set.isdisjoint(self.other_set)
+        self.other_set.add(1)
+        assert not self.set.isdisjoint(self.other_set)
