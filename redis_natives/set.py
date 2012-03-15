@@ -18,6 +18,7 @@ class Set(RedisSortable, Comparable, SetOperatorMixin):
             for el in iter:
                 self._pipe.sadd(key, el)
             self._pipe.execute()
+        self.tmp_keys = []
 
     def __len__(self):
         return self._client.scard(self.key)
@@ -176,14 +177,7 @@ class Set(RedisSortable, Comparable, SetOperatorMixin):
             raise RedisKeyError("Redis#%s, %s: Element '%s' doesn't exist" % \
                                 (self._client.db, self.key, el))
 
-    def symmetric_difference(self, *others):
-        """
-        Return the symmetric difference of this set and others as new set
-        """
-        baseKey = str(int(time()))
-        key_union, key_inter = baseKey + 'union', baseKey + 'inter'
-
-        tmp_keys = []
+    def parse_args(self, others):
         redis_keys = [self.key]
         for i, other in enumerate(others):
             if isinstance(other, list):
@@ -191,7 +185,7 @@ class Set(RedisSortable, Comparable, SetOperatorMixin):
 
             if isinstance(other, set):
                 tmp_key = '__tmp__' + str(i)
-                tmp_keys.append(tmp_key)
+                self.tmp_keys.append(tmp_key)
                 redis_keys.append(tmp_key)
                 for element in other:
                     self._pipe.sadd(tmp_key, element)
@@ -199,18 +193,29 @@ class Set(RedisSortable, Comparable, SetOperatorMixin):
                 redis_keys.append(other.key)
             else:
                 raise RedisTypeError("Object must me type of set/Set")
+        return redis_keys
 
+    def symmetric_difference(self, *others):
+        """
+        Return the symmetric difference of this set and others as new set
+        """
+        baseKey = str(int(time()))
+        key_union, key_inter = baseKey + 'union', baseKey + 'inter'
+
+        redis_keys = self.parse_args(others)
         if redis_keys:
             self._pipe.sinterstore(key_inter, redis_keys) \
                 .sunionstore(key_union, redis_keys)
-            for tmp_key in tmp_keys:
+            for tmp_key in self.tmp_keys:
                 self._pipe.delete(tmp_key)
+            self.tmp_keys = []
 
             self._pipe.sdiff([key_union, key_inter]) \
                 .delete(key_union) \
                 .delete(key_inter)
 
             return set(map(self.type_convert, self._pipe.execute()[-3]))
+        return set()
 
     def symmetric_difference_update(self, *others):
         """
@@ -219,27 +224,12 @@ class Set(RedisSortable, Comparable, SetOperatorMixin):
         baseKey = str(int(time()))
         key_union, key_inter = baseKey + 'union', baseKey + 'inter'
 
-        tmp_keys = []
-        redis_keys = [self.key]
-        for i, other in enumerate(others):
-            if isinstance(other, list):
-                other = set(other)
-
-            if isinstance(other, set):
-                tmp_key = '__tmp__' + str(i)
-                tmp_keys.append(tmp_key)
-                redis_keys.append(tmp_key)
-                for element in other:
-                    self._pipe.sadd(tmp_key, element)
-            elif isinstance(other, Set):
-                redis_keys.append(other.key)
-            else:
-                raise RedisTypeError("Object must me type of list/set/Set")
+        redis_keys = self.parse_args(others)
 
         if redis_keys:
             self._pipe.sinterstore(key_inter, redis_keys) \
                 .sunionstore(key_union, redis_keys)
-            for tmp_key in tmp_keys:
+            for tmp_key in self.tmp_keys:
                 self._pipe.delete(tmp_key)
 
             self._pipe.sdiffstore(self.key, [key_union, key_inter]) \
