@@ -62,39 +62,21 @@ class Set(RedisSortable, Comparable, SetOperatorMixin):
         """
         Return the difference between this set and other as new set
         """
-        rset_keys, sets = self._split_by_type(others)
-        pipe = self._pipe
-        temporary_key = '__temp__'
-        if sets:
-            rset_keys.append(temporary_key)
-            for native_set in sets:
-                for element in native_set:
-                    pipe.sadd(temporary_key, element)
-
-        if rset_keys:
-            rset_keys.insert(0, self.key)
-            pipe.sdiff(rset_keys)
-        pipe.delete(temporary_key)
-        return set(map(self.type_convert, pipe.execute()[-2]))
+        redis_keys = self.parse_args(others)
+        if redis_keys:
+            self._pipe.sdiff(redis_keys)
+            i = self._delete_temporary()
+            return self.get_pipe_value(i)
 
     def difference_update(self, *others):
         """
         Remove all elements of other sets from this set
         """
-        rset_keys, sets = self._split_by_type(others)
-        pipe = self._pipe
-        temporary_key = '__temp__'
-        if sets:
-            rset_keys.append(temporary_key)
-            for native_set in sets:
-                for element in native_set:
-                    pipe.sadd(temporary_key, element)
-
-        if rset_keys:
-            rset_keys.insert(0, self.key)
-            pipe.sdiffstore(self.key, rset_keys)
-        pipe.delete(temporary_key)
-        pipe.execute()
+        redis_keys = self.parse_args(others)
+        if redis_keys:
+            self._pipe.sdiffstore(self.key, redis_keys)
+            self._delete_temporary()
+            self._pipe.execute()
 
     # TODO: Implement difference_copy?
 
@@ -108,24 +90,11 @@ class Set(RedisSortable, Comparable, SetOperatorMixin):
         """
         Return the intersection of this set and others as new set
         """
-        rset_keys, sets = self._split_by_type(others)
-        pipe = self._pipe
-        temporary_key = '__temp__'
-        tmp_keys = []
-        if sets:
-            for index, native_set in enumerate(sets):
-                tmp_key = temporary_key + str(index)
-                tmp_keys.append(tmp_key)
-                rset_keys.append(tmp_key)
-                for element in native_set:
-                    pipe.sadd(tmp_key, element)
-
-        if rset_keys:
-            rset_keys.insert(0, self.key)
-            pipe.sinter(rset_keys)
-        for tmp_key in tmp_keys:
-            pipe.delete(tmp_key)
-        return set(map(self.type_convert, pipe.execute()[-2]))
+        redis_keys = self.parse_args(others)
+        if redis_keys:
+            self._pipe.sinter(redis_keys)
+            i = self._delete_temporary()
+            return self.get_pipe_value(i)
 
     def intersection_update(self, *others):
         """
@@ -135,24 +104,11 @@ class Set(RedisSortable, Comparable, SetOperatorMixin):
 
         Uses single redis pipe for the whole procedure (= very fast)
         """
-        rset_keys, sets = self._split_by_type(others)
-        pipe = self._pipe
-        temporary_key = '__temp__'
-        tmp_keys = []
-        if sets:
-            for index, native_set in enumerate(sets):
-                tmp_key = temporary_key + str(index)
-                tmp_keys.append(tmp_key)
-                rset_keys.append(tmp_key)
-                for element in native_set:
-                    pipe.sadd(tmp_key, element)
-
-        if rset_keys:
-            rset_keys.insert(0, self.key)
-            pipe.sinterstore(self.key, rset_keys)
-        for tmp_key in tmp_keys:
-            pipe.delete(tmp_key)
-        pipe.execute()
+        redis_keys = self.parse_args(others)
+        if redis_keys:
+            self._pipe.sinterstore(self.key, redis_keys)
+            self._delete_temporary()
+            self._pipe.execute()
 
     # TODO: Implement intersection_copy?
 
@@ -201,21 +157,27 @@ class Set(RedisSortable, Comparable, SetOperatorMixin):
         """
         baseKey = str(int(time()))
         key_union, key_inter = baseKey + 'union', baseKey + 'inter'
+        self.tmp_keys = [key_union, key_inter]
 
         redis_keys = self.parse_args(others)
         if redis_keys:
             self._pipe.sinterstore(key_inter, redis_keys) \
                 .sunionstore(key_union, redis_keys)
-            for tmp_key in self.tmp_keys:
-                self._pipe.delete(tmp_key)
-            self.tmp_keys = []
-
-            self._pipe.sdiff([key_union, key_inter]) \
-                .delete(key_union) \
-                .delete(key_inter)
-
-            return set(map(self.type_convert, self._pipe.execute()[-3]))
+            self._pipe.sdiff([key_union, key_inter])
+            i = self._delete_temporary()
+            return self.get_pipe_value(i)
         return set()
+
+    def get_pipe_value(self, i):
+        return set(map(self.type_convert, self._pipe.execute()[-i - 1]))
+
+    def _delete_temporary(self):
+        keys_deleted = 0
+        for temporary_key in self.tmp_keys:
+            self._pipe.delete(temporary_key)
+            keys_deleted += 1
+        self.tmp_keys = []
+        return keys_deleted
 
     def symmetric_difference_update(self, *others):
         """
@@ -223,19 +185,15 @@ class Set(RedisSortable, Comparable, SetOperatorMixin):
         """
         baseKey = str(int(time()))
         key_union, key_inter = baseKey + 'union', baseKey + 'inter'
+        self.tmp_keys = [key_union, key_inter]
 
         redis_keys = self.parse_args(others)
 
         if redis_keys:
             self._pipe.sinterstore(key_inter, redis_keys) \
                 .sunionstore(key_union, redis_keys)
-            for tmp_key in self.tmp_keys:
-                self._pipe.delete(tmp_key)
-
-            self._pipe.sdiffstore(self.key, [key_union, key_inter]) \
-                .delete(key_union) \
-                .delete(key_inter)
-
+            self._pipe.sdiffstore(self.key, [key_union, key_inter])
+            self._delete_temporary()
             self._pipe.execute()
 
     # TODO: Implement symmetric_difference_copy?
@@ -244,37 +202,21 @@ class Set(RedisSortable, Comparable, SetOperatorMixin):
         """
         Return the union of this set and others as new set
         """
-        rset_keys, sets = self._split_by_type(others)
-        if rset_keys:
-            rset_keys.append(self.key)
-            data = self._client.sunion(rset_keys)
-        else:
-            data = self.data
-        if sets:
-            for native_set in sets:
-                for element in native_set:
-                    data.add(element)
-
-        return data
+        redis_keys = self.parse_args(others)
+        if redis_keys:
+            self._pipe.sunion(redis_keys)
+            i = self._delete_temporary()
+            return self.get_pipe_value(i)
 
     def update(self, *others):
         """
         Update a set with the union of itself and others
         """
-        rset_keys, sets = self._split_by_type(others)
-        pipe = self._pipe
-        temporary_key = '__temp__'
-        if sets:
-            rset_keys.append(temporary_key)
-            for native_set in sets:
-                for element in native_set:
-                    pipe.sadd(temporary_key, element)
-
-        if rset_keys:
-            rset_keys.append(self.key)
-            pipe.sunionstore(self.key, rset_keys)
-        pipe.delete(temporary_key)
-        pipe.execute()
+        redis_keys = self.parse_args(others)
+        if redis_keys:
+            self._pipe.sunionstore(self.key, redis_keys)
+            self._delete_temporary()
+            self._pipe.execute()
 
     def isdisjoint(self, *others):
         """
@@ -293,22 +235,6 @@ class Set(RedisSortable, Comparable, SetOperatorMixin):
         """
         # TODO: Implement
         raise NotImplementedError("Set.issuperset not implemented yet")
-
-    @staticmethod
-    def _split_by_type(sets, join='union'):
-        """
-        Separates all ``sets`` into native ``sets`` and ``Sets``
-        and returns them in two lists
-        """
-        rset_keys, native_sets = [], []
-        for s in sets:
-            if isinstance(s, Set):
-                rset_keys.append(s.key)
-            elif isinstance(s, (set, list)):
-                native_sets.append(s)
-            else:
-                raise RedisTypeError("Object must me type of set/list")
-        return rset_keys, native_sets
 
     def grab(self):
         """
