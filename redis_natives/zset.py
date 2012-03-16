@@ -38,6 +38,8 @@ class ZSet(RedisSortable, Comparable, SetOperatorMixin):
                 self._pipe.zadd(val, score)
             self._pipe.execute()
         self.tuple2scalar = lambda a: a[0]
+        self.tmp_keys = []
+        self.aggregate = 'sum'
 
     def type_convert_tuple(self, value):
         if isinstance(value, tuple):
@@ -149,33 +151,68 @@ class ZSet(RedisSortable, Comparable, SetOperatorMixin):
                 data.add(element)
         return data
 
-    def update(self, *others):
+    def update(self, *others, **kwargs):
         """
         Return the union of this set and others as new set
         """
-        for element in self.union(*others):
-            self._pipe.zadd(self.key, element[0], element[1])
-        self._pipe.execute()
+        aggregate = self.aggregate
+        if 'aggregate' in kwargs:
+            aggregate = kwargs['aggregate']
 
-    def intersection(self, *others):
+        redis_keys = self.parse_args(others)
+        if redis_keys:
+            self._pipe.zunionstore(
+                self.key,
+                redis_keys,
+                aggregate=aggregate
+            )
+            self._delete_temporary()
+            self._pipe.execute()
+
+    def intersection(self, *others, **kwargs):
         """
         Return the intersection of this set and others as new set
         """
-        data = set(self.data)
-        for other in others:
-            data = data.intersection(other)
-        return data
+        aggregate = self.aggregate
+        if 'aggregate' in kwargs:
+            aggregate = kwargs['aggregate']
 
-    def intersection_update(self, *others):
+        redis_keys = self.parse_args(others)
+        temporary_key = '__tmp__intersection'
+        self.tmp_keys.append(temporary_key)
+        if redis_keys:
+            self._pipe.zinterstore(
+                temporary_key,
+                redis_keys,
+                aggregate=aggregate
+            )
+            self._pipe.zrange(temporary_key, 0, -1, withscores=True)
+            i = self._delete_temporary()
+            return set(
+                map(self.type_convert_tuple, self._pipe.execute()[-i - 1])
+            )
+
+    def intersection_update(self, *others, **kwargs):
         """
         Update this set with the intersection of itself and others
+
+        Accepts both native python sets and redis ZSet objects as arguments
+
+        Uses single redis pipe for the whole procedure (= very fast)
         """
-        pipe = self._pipe
-        pipe.delete(self.key)
-        for element in self.intersection(*others):
-            pipe.zadd(self.key, element[0], element[1])
-        pipe.execute()
-        return self
+        aggregate = self.aggregate
+        if 'aggregate' in kwargs:
+            aggregate = kwargs['aggregate']
+
+        redis_keys = self.parse_args(others)
+        if redis_keys:
+            self._pipe.zinterstore(
+                self.key,
+                redis_keys,
+                aggregate=aggregate
+            )
+            self._delete_temporary()
+            self._pipe.execute()
 
     def difference(self, *others):
         """

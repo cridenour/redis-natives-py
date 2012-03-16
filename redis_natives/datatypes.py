@@ -169,6 +169,41 @@ class SetOperatorMixin(object):
         """
         return len(self.union(other)) == len(self)
 
+    def parse_args(self, others):
+        from .set import Set
+        from .zset import ZSet
+        redis_keys = [self.key]
+        for i, other in enumerate(others):
+            if isinstance(other, list):
+                other = set(other)
+
+            if isinstance(other, set):
+                tmp_key = '__tmp__' + str(i)
+                self.tmp_keys.append(tmp_key)
+                redis_keys.append(tmp_key)
+                for element in other:
+                    if isinstance(self, ZSet):
+                        self._pipe.zadd(tmp_key, element[0], element[1])
+                    elif isinstance(self, Set):
+                        self._pipe.sadd(tmp_key, element)
+            elif isinstance(other, self.__class__):
+                redis_keys.append(other.key)
+            else:
+                raise RedisTypeError("Object must me type of set/%s" % \
+                    self.__class__.__name__)
+        return redis_keys
+
+    def get_pipe_value(self, i):
+        return set(map(self.type_convert, self._pipe.execute()[-i - 1]))
+
+    def _delete_temporary(self):
+        keys_deleted = 0
+        for temporary_key in self.tmp_keys:
+            self._pipe.delete(temporary_key)
+            keys_deleted += 1
+        self.tmp_keys = []
+        return keys_deleted
+
 
 class Comparable(object):
     def __gt__(self, other):
