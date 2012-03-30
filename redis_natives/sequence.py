@@ -22,12 +22,8 @@ class Sequence(RedisSortable, Sequence):
         # will be used for queue-specific stuff and because it matters
         # if b-lpop/b-rpop, I let it up to the user how to insert initials
         if reset:
-            # When key already exists: FLush the bastard
+            # When key already exists: Flush the bastard
             self._client.delete(self.key)
-
-    #===========================================================================
-    # Built-in/Required methods
-    #===========================================================================
 
     def __str__(self):
         return str(self._client.lrange(self.key, 0, -1))
@@ -57,17 +53,6 @@ class Sequence(RedisSortable, Sequence):
 
     def __getslice__(self, start, end):
         return self._client.lrange(self.key, start, end)
-
-    def count(self, el):
-        return self._client.lrange(self.key, 0, -1).count(el)
-
-    def index(self, el):
-        # Expensive -- but there's no other way
-        return self._client.lrange(self.key, 0, -1).index(el)
-
-    #==========================================================================
-    # Custom methods
-    #==========================================================================
 
     def push_head(self, el):
         """

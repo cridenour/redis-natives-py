@@ -4,18 +4,8 @@ from collections import Sequence
 
 
 class List(RedisSortable, Sequence):
-    """
-    Sequence datatype that tries to meme a native ``list`` datatype by
-    implementing *most* of its methods. Be aware that some methods still exist,
-    but will throw ``NotImplementedError``s.
-    """
 
     __slots__ = ("_key", "_client", "_pipe")
-
-    # Though redis doesn't supprt list element removal by index, we're
-    # exposing only a Sequence interface to a client. Methods like
-    # __setitem__, insert, pop and sort will be available though, becuase
-    # we can implement them with native redis functionality
 
     def __init__(self, client, key, type=str, iter=[]):
         super(List, self).__init__(client, key, type)
@@ -78,10 +68,6 @@ class List(RedisSortable, Sequence):
     # __delitem__ cannot be implemented (yet) without sideeffects
     def __delitem__(self):
         raise NotImplementedError("Method '__delitem__' not implemented yet")
-
-    #==========================================================================
-    # Native methods
-    #==========================================================================
 
     def append(self, el):
         """Pushes element ``el`` at the end of this list.
@@ -151,6 +137,34 @@ class List(RedisSortable, Sequence):
         else:
             raise RedisTypeError("Argument 'count' must be type of 'int'")
         raise RedisValueError("Value '" + str(val) + "' not present")
+
+    def bpop_head(self, keys=[], timeout=0):
+        """
+        ``pop_tail`` a value off of the first non-empty list named in the
+        ``keys`` list and return it together with the ``key`` that unblocked
+        it as a two-element tuple.
+
+        If none of the lists in ``keys`` has a value to ``pop_tail``, then
+        block for ``timeout`` seconds, or until a value gets pushed on to
+        one of the lists.
+
+        If ``timeout`` is 0, then block indefinitely.
+        """
+        return self._client.blpop(keys.insert(0, self.key), timeout)
+
+    def bpop_tail(self, keys=[], timeout=0):
+        """
+        ``pop_tail`` a value off of the first non-empty list named in the
+        ``keys`` list and return it together with the ``key`` that unblocked
+        it as a two-element tuple.
+
+        If none of the lists in ``keys`` has a value to ``pop_tail``, then
+        block for ``timeout`` seconds, or until a value gets pushed on to
+        one of the lists.
+
+        If ``timeout`` is 0, then block indefinitely.
+        """
+        return self._client.brpop(keys.insert(0, self.key), timeout)
 
     def reverse(self):
         # Only there for the sake of completeness

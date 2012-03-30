@@ -6,6 +6,7 @@ All native datatypes.
 __version__ = '0.11'
 __author__ = ['Peter Geil', 'Konsta Vesterinen']
 
+import os
 from redis import Redis
 
 from redis_natives.errors import RedisTypeError
@@ -41,6 +42,9 @@ class RedisDataType(object):
             self.type_convert = lambda a: bool(int(a))
         else:
             self.type_convert = type
+
+    def generate_temporary_key(self):
+        return '__tmp__' + ''.join('%02x' % ord(x) for x in os.urandom(16))
 
     @property
     def key(self):

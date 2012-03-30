@@ -25,3 +25,11 @@ class TestIntegerZSet(IntegerZSetTestCase):
         self.zset.add(2, 2)
         self.zset ^= set([(2, 2.0), (3, 3.0)])
         assert self.zset.data == [(1, 1.0), (3, 3.0)]
+
+    def test_symmetric_difference_accepts_redis_sets(self):
+        self.zset.add(1, 1)
+        self.zset.add(2, 2)
+        self.other_zset.add(2, 2)
+        self.other_zset.add(3, 3)
+        assert self.zset.symmetric_difference(self.other_zset) == \
+            set([(1, 1.0), (3, 3.0)])

@@ -1,5 +1,5 @@
 from time import time
-from .errors import RedisTypeError, RedisKeyError
+from .errors import RedisKeyError
 from .datatypes import RedisSortable, Comparable, SetOperatorMixin
 
 
@@ -82,7 +82,8 @@ class Set(RedisSortable, Comparable, SetOperatorMixin):
 
     def discard(self, member):
         """
-        Remove ``member`` form this set; Do nothing when element is not a member.
+        Remove ``member`` form this set; Do nothing when element is not a
+        member.
         """
         self._client.srem(self.key, self.type_prepare(member))
 
@@ -133,24 +134,6 @@ class Set(RedisSortable, Comparable, SetOperatorMixin):
             raise RedisKeyError("Redis#%s, %s: Element '%s' doesn't exist" % \
                                 (self._client.db, self.key, el))
 
-    def parse_args(self, others):
-        redis_keys = [self.key]
-        for i, other in enumerate(others):
-            if isinstance(other, list):
-                other = set(other)
-
-            if isinstance(other, set):
-                tmp_key = '__tmp__' + str(i)
-                self.tmp_keys.append(tmp_key)
-                redis_keys.append(tmp_key)
-                for element in other:
-                    self._pipe.sadd(tmp_key, element)
-            elif isinstance(other, Set):
-                redis_keys.append(other.key)
-            else:
-                raise RedisTypeError("Object must me type of set/Set")
-        return redis_keys
-
     def symmetric_difference(self, *others):
         """
         Return the symmetric difference of this set and others as new set
@@ -167,17 +150,6 @@ class Set(RedisSortable, Comparable, SetOperatorMixin):
             i = self._delete_temporary()
             return self.get_pipe_value(i)
         return set()
-
-    def get_pipe_value(self, i):
-        return set(map(self.type_convert, self._pipe.execute()[-i - 1]))
-
-    def _delete_temporary(self):
-        keys_deleted = 0
-        for temporary_key in self.tmp_keys:
-            self._pipe.delete(temporary_key)
-            keys_deleted += 1
-        self.tmp_keys = []
-        return keys_deleted
 
     def symmetric_difference_update(self, *others):
         """

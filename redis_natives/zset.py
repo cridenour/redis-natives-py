@@ -246,10 +246,25 @@ class ZSet(RedisSortable, Comparable, SetOperatorMixin):
         """
         Update this set with the symmetric difference of itself and others
         """
-        self._pipe.delete(self.key)
-        for element in self.symmetric_difference(*others):
-            self._pipe.zadd(self.key, element[0], element[1])
-        self._pipe.execute()
+        key_union = self.generate_temporary_key()
+        key_inter = self.generate_temporary_key()
+        self.tmp_keys = [key_union, key_inter]
+
+        redis_keys = self.parse_args(others)
+
+        if redis_keys:
+            self._pipe.zinterstore(key_inter, redis_keys) \
+                .zunionstore(key_union, redis_keys)
+            self._pipe.zrange(key_union, 0, -1, withscores=True)
+            self._pipe.zrange(key_inter, 0, -1, withscores=True)
+            i = self._delete_temporary()
+            values = self._pipe.execute()
+            diff = set(values[-2 - i]) - set(values[-1 - i])
+            self._pipe.delete(self.key)
+            for element, score in diff:
+                self._pipe.zadd(self.key, element, score)
+            self._pipe.execute()
+        return set()
 
     def clear(self):
         """
