@@ -51,7 +51,10 @@ class ZSet(RedisSortable, Comparable, SetOperatorMixin):
     def data(self):
         return map(
             self.type_convert_tuple,
-            self._client.zrange(self.key, 0, -1,
+            self._client.zrange(
+                self.key,
+                0,
+                -1,
                 withscores=True)
         )
 
@@ -99,12 +102,18 @@ class ZSet(RedisSortable, Comparable, SetOperatorMixin):
                 start = 0
             return map(
                 self.type_convert_tuple,
-                self._client.zrange(self._key, start, stop,
+                self._client.zrange(
+                    self._key,
+                    start,
+                    stop,
                     withscores=self._withscores)
             )
         else:
             return self.type_convert_tuple(
-                self._client.zrange(self._key, key, key,
+                self._client.zrange(
+                    self._key,
+                    key,
+                    key,
                     withscores=self._withscores)[0]
             )
 
@@ -113,8 +122,12 @@ class ZSet(RedisSortable, Comparable, SetOperatorMixin):
         if isinstance(key, slice):
             raise TypeError('Setting slice ranges not supported for zsets.')
         else:
-            item, rank = self._client.zrange(self._key, key, key,
-                withscores=self._withscores)[0]
+            item, rank = self._client.zrange(
+                self._key,
+                key,
+                key,
+                withscores=self._withscores
+            )[0]
             return self._client.zadd(self._key, value, rank)
 
     def add(self, el, score):
@@ -137,9 +150,8 @@ class ZSet(RedisSortable, Comparable, SetOperatorMixin):
         """
         Return copy of this ``ZSet`` as new ``ZSet`` with key ``key``
         """
-        # TODO: Return native set-object instead of bound redis item?
         self._client.zunionstore(key, [self.key])
-        return ZSet(key, self._client)
+        return ZSet(self._client, key)
 
     def union(self, *others):
         """
@@ -281,9 +293,12 @@ class ZSet(RedisSortable, Comparable, SetOperatorMixin):
         if (length == 0):
             raise RedisKeyError("ZSet is empty")
         idx = randint(0, length - 1)
-        value = self._pipe.zrange(self.key, idx, idx) \
-                         .zremrangebyrank(self.key, idx, idx) \
-                   .execute()[0][0]
+        value = self._pipe.zrange(
+            self.key,
+            idx,
+            idx
+        ).zremrangebyrank(self.key, idx, idx).execute()[0][0]
+
         return self.type(value)
 
     def incr_score(self, el, by=1):
@@ -337,8 +352,12 @@ class ZSet(RedisSortable, Comparable, SetOperatorMixin):
         Note: only works for integer based scores
         """
         if not before:
-            return self._client.zrevrange(self.redis_key, 0, limit,
-                withscores=True)
+            return self._client.zrevrange(
+                self.redis_key,
+                0,
+                limit,
+                withscores=True
+            )
         else:
             items = []
             while len(items) < limit:

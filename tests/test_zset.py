@@ -46,8 +46,13 @@ class TestZSet(ZSetTestCase):
     def test_integer_type_conversion(self):
         self.zset.type = int
         self.zset.add(1, 2)
-
         assert self.zset.pop() == 1
+
+    def test_copy(self):
+        self.zset.add(1, 1)
+        zset = self.zset.copy('copy_key')
+        assert zset.key == 'copy_key'
+        assert [i for i in self.zset] == [('1', 1.0)]
 
 
 class TestIntegerZSet(IntegerZSetTestCase):

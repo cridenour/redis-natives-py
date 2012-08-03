@@ -54,7 +54,6 @@ class Set(RedisSortable, Comparable, SetOperatorMixin):
         """
         Return copy of this ``Set`` as
         """
-        # TODO: Return native set-object instead of bound redis item?
         self._client.sunionstore(key, [self.key])
         return Set(key, self._client)
 

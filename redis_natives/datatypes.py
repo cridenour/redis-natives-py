@@ -87,7 +87,9 @@ class RedisDataType(object):
         elif isinstance(target, (int, long)):
             dbIndex = target
         else:
-            raise RedisTypeError("Target must be either type of Redis or numerical")
+            raise RedisTypeError(
+                "Target must be either type of Redis or numerical"
+            )
         return self._client.move(self.key, dbIndex)
 
     def rename(self, newKey, overwrite=True):
@@ -111,11 +113,11 @@ class RedisDataType(object):
         """
         return self._client.ttl(self.key)
 
-    def let_expire(self, nSecs):
-        """Let this key expire in ``nSecs`` seconds. After this time the
+    def let_expire(self, secs):
+        """Let this key expire in ``secs`` seconds. After this time the
         key with its assigned value will be removed/deleted irretrievably.
         """
-        self._client.expire(self.key, int(nSecs))
+        self._client.expire(self.key, int(secs))
 
     def let_expire_at(self, timestamp):
         """Let this key expire exactly at time ``timestamp``. When this time
@@ -196,8 +198,9 @@ class SetOperatorMixin(object):
             elif isinstance(other, self.__class__):
                 redis_keys.append(other.key)
             else:
-                raise RedisTypeError("Object must me type of set/%s" % \
-                    self.__class__.__name__)
+                raise RedisTypeError(
+                    "Object must me type of set/%s" % self.__class__.__name__
+                )
         return redis_keys
 
     def get_pipe_value(self, i):
