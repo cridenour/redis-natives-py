@@ -30,7 +30,7 @@ class List(RedisSortable, Sequence):
 
     def __reversed__(self):
         return map(self.type_convert,
-            self._client.lrange(self.key, 0, -1)).reverse()
+                   self._client.lrange(self.key, 0, -1)).reverse()
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -65,7 +65,6 @@ class List(RedisSortable, Sequence):
         else:
             return self._client.lset(self._key, key, value)
 
-    # __delitem__ cannot be implemented (yet) without sideeffects
     def __delitem__(self):
         raise NotImplementedError("Method '__delitem__' not implemented yet")
 

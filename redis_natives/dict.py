@@ -9,11 +9,11 @@ class Dict(RedisDataType, MutableMapping):
     as a bound ``RedisDataType``. Use it exactly as you'd use a ``dict``.
     """
 
-    __slots__ = ("_key", "_client", "_pipe")
+    __slots__ = ('_key', '_client', '_pipe')
 
     def __init__(self, client, key, iter=None, type=str):
         super(Dict, self).__init__(client, key, type)
-        if hasattr(iter, "iteritems") and len(iter):
+        if hasattr(iter, 'iteritems') and len(iter):
             # TODO: What if the key already exists?
             self._client.hmset(self.key, iter)
 
@@ -42,8 +42,9 @@ class Dict(RedisDataType, MutableMapping):
 
     def __delitem__(self, key):
         if not self._client.hdel(self.key, key):
-            raise RedisKeyError("Cannot delete field '" + key + \
-                                "'. It doesn't exist")
+            raise RedisKeyError(
+                "Cannot delete field '" + key + "'. It doesn't exist"
+            )
 
     def __str__(self):
         return str(self.__repr__())
@@ -54,22 +55,25 @@ class Dict(RedisDataType, MutableMapping):
         self._client.delete(self.key)
 
     def copy(self, key):
-        # TODO: Return native dict instead of bound Dict?
-        return Dict(key, self._client,
-                         self._client.hgetall(self.key))
+        return Dict(
+            key,
+            self._client,
+            self._client.hgetall(self.key)
+        )
 
     def fromkeys(self, dstKey, keys, values=""):
         self._client.hmset(dstKey, dict.fromkeys(keys, values))
         return Dict(dstKey, self._client)
 
     def items(self):
-        # dict.items() returns a list with k,v-tuples -- and so do we
-        allItems = self._client.hgetall(self.key)
-        return zip(allItems.keys(), map(self.type_convert, allItems.values()))
+        items = self._client.hgetall(self.key)
+        return zip(items.keys(), map(self.type_convert, items.values()))
 
     def iteritems(self):
-        return map(self.type_convert, self._client.hgetall(self.key)) \
-            .iteritems()
+        return map(
+            self.type_convert,
+            self._client.hgetall(self.key)
+        ).iteritems()
 
     def iterkeys(self):
         return iter(self._client.hkeys(self.key))
@@ -80,17 +84,12 @@ class Dict(RedisDataType, MutableMapping):
     def keys(self):
         return self._client.hkeys(self.key)
 
-    # Inherited mixin methods:
-    #   - get
-    #   - popitem
-    #   - popdef
-
     def setdefault(self):
         raise NotImplementedError("Method 'setdefault' is not yet implemented")
 
     def update(self, other, **others):
         pairs = []
-        if hasattr(other, "keys"):
+        if hasattr(other, 'keys'):
             for k in other:
                 pairs.extend((k, other[k]))
         else:

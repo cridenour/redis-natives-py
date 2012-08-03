@@ -5,7 +5,9 @@ from collections import Sequence
 
 class Sequence(RedisSortable, Sequence):
     """
-    Sequence datatype that implements all functions of ``Redis list`` datatypes.
+    Sequence datatype that implements all functions of ``Redis list``
+    datatypes.
+
     Compared to ``List``, a ``Sequence`` doesn't try to meme a native
     ``list`` datatype and instead exposes all native functionalities of Redis
     for working with list datatypes.
@@ -51,9 +53,6 @@ class Sequence(RedisSortable, Sequence):
     def __getitem__(self, idx):
         return self._client.lindex(self.key, idx)
 
-    def __getslice__(self, start, end):
-        return self._client.lrange(self.key, start, end)
-
     def push_head(self, el):
         """
         Push value ``el`` in *front* of this list.
@@ -92,8 +91,6 @@ class Sequence(RedisSortable, Sequence):
 
         If ``timeout`` is 0, then block indefinitely.
         """
-        # For more informations about blocking operations see:
-        # ---> http://code.google.com/p/redis/wiki/BlpopCommand
         return self._client.blpop(keys.insert(0, self.key), timeout)
 
     def bpop_tail(self, keys=[], timeout=0):
@@ -108,17 +105,15 @@ class Sequence(RedisSortable, Sequence):
 
         If ``timeout`` is 0, then block indefinitely.
         """
-        # For more informations about blocking operations see:
-        # ---> http://code.google.com/p/redis/wiki/BlpopCommand
         return self._client.brpop(keys.insert(0, self.key), timeout)
 
-    def pop_tail_push_head(self, dstKey):
+    def pop_tail_push_head(self, dst_key):
         """
         Removes the *last* element from this list, ``push_head`` it
         to the list with a key named ``dstKey`` (atomically) and finally
         return the value.
         """
-        return self._client.rpoplpush(self.key, dstKey)
+        return self._client.rpoplpush(self.key, dst_key)
 
     def range(self, start, end):
         """

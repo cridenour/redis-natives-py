@@ -113,12 +113,12 @@ class Set(RedisSortable, Comparable, SetOperatorMixin):
 
     # TODO: Implement intersection_copy?
 
-    def pop(self, noRemove=False):
+    def pop(self, no_remove=False):
         """
         Remove and return a random element; When ``noRemove`` is ``True``
         element will not be removed. Raises ``KeyError`` if  set is empty.
         """
-        if noRemove:
+        if no_remove:
             value = self._client.srandmember(self.key)
         else:
             value = self._client.spop(self.key)
@@ -131,7 +131,7 @@ class Set(RedisSortable, Comparable, SetOperatorMixin):
         """
         el = self.type_prepare(el)
         if not self._client.srem(self.key, el):
-            raise RedisKeyError("Redis#%s, %s: Element '%s' doesn't exist" % \
+            raise RedisKeyError("Redis#%s, %s: Element '%s' doesn't exist" %
                                 (self._client.db, self.key, el))
 
     def symmetric_difference(self, *others):

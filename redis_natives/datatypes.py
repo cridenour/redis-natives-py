@@ -46,6 +46,9 @@ class RedisDataType(object):
     def generate_temporary_key(self):
         return '__tmp__' + ''.join('%02x' % ord(x) for x in os.urandom(16))
 
+    def delete(self):
+        return self._client.delete(self.key)
+
     @property
     def key(self):
         """
