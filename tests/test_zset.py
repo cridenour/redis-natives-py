@@ -52,7 +52,7 @@ class TestZSet(ZSetTestCase):
         self.zset.add(1, 1)
         zset = self.zset.copy('copy_key')
         assert zset.key == 'copy_key'
-        assert [i for i in self.zset] == [('1', 1.0)]
+        assert [i for i in zset] == [('1', 1.0)]
 
 
 class TestIntegerZSet(IntegerZSetTestCase):

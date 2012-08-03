@@ -55,7 +55,7 @@ class Set(RedisSortable, Comparable, SetOperatorMixin):
         Return copy of this ``Set`` as
         """
         self._client.sunionstore(key, [self.key])
-        return Set(key, self._client)
+        return Set(self._client, key)
 
     def difference(self, *others):
         """

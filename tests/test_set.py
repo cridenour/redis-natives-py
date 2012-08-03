@@ -38,6 +38,12 @@ class TestSet(SetTestCase):
         self.set.add(1)
         assert self.set.redis_type == 'set'
 
+    def test_copy(self):
+        self.set.add(1)
+        set_ = self.set.copy('copy_key')
+        assert set_.key == 'copy_key'
+        assert [i for i in set_] == ['1']
+
 
 class TestIntegerSet(IntegerSetTestCase):
     def test_add_value_increases_length(self):
