@@ -1,5 +1,6 @@
 from pytest import raises
-from tests import ZSetTestCase
+
+from redis_natives.tests import ZSetTestCase
 
 
 class TestZSetSlicing(ZSetTestCase):

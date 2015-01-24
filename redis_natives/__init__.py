@@ -6,7 +6,7 @@ from .zset import ZSet
 from .list import List
 from .scalar import Scalar
 
-__version__ = '0.12'
+__version__ = '0.15'
 __author__ = 'Peter Geil'
 __all__ = (
     'datatypes',

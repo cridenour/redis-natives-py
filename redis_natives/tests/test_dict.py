@@ -1,6 +1,7 @@
 from redis import Redis
+
 from redis_natives import Dict
-from tests import RedisWrapper
+from redis_natives.tests import RedisWrapper
 
 
 class TestDict(object):

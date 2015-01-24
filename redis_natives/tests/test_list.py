@@ -1,6 +1,7 @@
 from redis import Redis
+
 from redis_natives import List
-from tests import RedisWrapper
+from redis_natives.tests import RedisWrapper
 
 
 class TestList(object):

@@ -1,4 +1,4 @@
-from tests import ZSetTestCase, IntegerZSetTestCase
+from redis_natives.tests import ZSetTestCase, IntegerZSetTestCase
 
 
 class TestZSet(ZSetTestCase):

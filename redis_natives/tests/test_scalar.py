@@ -1,6 +1,7 @@
 from redis import Redis
+
 from redis_natives import Scalar
-from tests import RedisWrapper
+from redis_natives.tests import RedisWrapper
 
 
 class TestStringScalar(object):

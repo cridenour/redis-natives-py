@@ -1,4 +1,4 @@
-from tests import IntegerSetTestCase, SetTestCase
+from redis_natives.tests import IntegerSetTestCase, SetTestCase
 
 
 class TestSetDifference(SetTestCase):
