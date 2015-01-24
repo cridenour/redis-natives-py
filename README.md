@@ -1,5 +1,7 @@
 # redis-natives-py #
 
+[![Build Status](https://travis-ci.org/cridenour/redis-natives-py.svg)](https://travis-ci.org/cridenour/redis-natives-py)
+
 A thin abstraction layer on top of [redis-py](http://github.com/andymccurdy/redis-py) that
 exposes Redis entities as native Python datatypes. Simple, plain but powerful. No ORMing
 or model-messing -- this isn't the real purpose of high performance key-value-stores like Redis.
