@@ -1,4 +1,8 @@
 #!/usr/bin/env python
+try:
+    from setuptools import setup
+except ImportError:
+    from distutils import setup
 
 """
 @file setup.py
@@ -10,10 +14,10 @@
 version = '0.12'
 
 sdict = {
-    'name' : 'redis_natives',
-    'version' : version,
-    'description' : 'Exposes Redis entities as native Python datatypes. Simple, plain but powerful. Supports namespacing, indexing, and some more.',
-    'long_description' : 'A thin abstraction layer on top of redis-py that exposes Redis entities as native Python datatypes. Simple, plain but powerful. No ORMing or model-messing.',
+    'name': 'redis_natives',
+    'version': version,
+    'description': 'Exposes Redis entities as native Python datatypes. Simple, plain but powerful. Supports namespacing, indexing, and some more.',
+    'long_description': 'A thin abstraction layer on top of redis-py that exposes Redis entities as native Python datatypes. Simple, plain but powerful.',
     'url': 'http://github.com/peta/redis-natives-py',
     'download_url' : 'http://github.com/downloads/peta/redis-natives-py/redis-natives-py-%s.zip' % version,
     'author' : 'Peter Geil',
@@ -32,13 +36,8 @@ sdict = {
         'License :: OSI Approved :: MIT License',
         'License :: OSI Approved :: BSD License',
         'Programming Language :: Python',
-		'Topic :: Database'],
+        'Topic :: Database'],
 }
 
-try:
-    from setuptools import setup
-except ImportError:
-    from distutils.core import setup
-    
-setup(**sdict)
 
+setup(**sdict)

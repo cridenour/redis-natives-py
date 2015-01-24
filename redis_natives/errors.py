@@ -8,8 +8,10 @@ __author__ = 'Peter Geil'
 class RedisTypeError(TypeError):
     pass
 
-class RedisKeyError(TypeError): 
+
+class RedisKeyError(TypeError):
     pass
 
-class RedisValueError(ValueError): 
+
+class RedisValueError(ValueError):
     pass

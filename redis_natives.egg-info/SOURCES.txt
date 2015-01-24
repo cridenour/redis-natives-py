@@ -2,7 +2,6 @@ CHANGES
 INSTALL
 LICENSE
 MANIFEST.in
-README
 README.md
 setup.py
 redis_natives/__init__.py
